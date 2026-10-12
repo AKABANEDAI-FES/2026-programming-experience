@@ -6,6 +6,10 @@ import { DisplayPage } from './pages/Display/DisplayPage.tsx';
 
 const isDisplayPage = window.location.pathname.replace(/\/$/, '') === '/display';
 
+if (isDisplayPage) {
+  document.title = '大画面 | プログラミング体験会';
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>{isDisplayPage ? <DisplayPage /> : <App />}</StrictMode>,
 );
