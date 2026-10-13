@@ -8,6 +8,8 @@ import {
 } from 'react';
 import type { DrawMode } from 'shared';
 import inyaaOutline from '../assets/inyaa-outline.svg';
+import { DrawingToolbar, type Tool } from './DrawingToolbar';
+import { DEFAULT_DRAWING_COLOR, DEFAULT_LINE_WIDTH } from './drawingToolbarOptions';
 import { DRAW_MODES, DRAW_MODE_COPY } from '../constants/drawModes';
 import { applyFillToEditingLayer } from '../lib/paint/applyFillToEditingLayer';
 import { clearOuterBackground } from '../lib/paint/clearOuterBackground';
@@ -27,8 +29,6 @@ type Point = {
   y: number;
 };
 
-type Tool = 'pen' | 'eraser' | 'fill';
-
 type FillFeedback = {
   id: number;
   message: string;
@@ -47,19 +47,6 @@ const UNFILLABLE_MESSAGE = 'この範囲は塗りつぶせないよ。線で囲�
 const FILL_ERROR_MESSAGE = 'うまく塗りつぶせなかったよ。もう一度試してね。';
 const HIGHLIGHT_COLOR: Rgba = { r: 239, g: 68, b: 68, a: 104 };
 const FILL_CURSOR_DIAMETER = 18;
-
-const COLORS = [
-  { value: '#1f2937', label: 'くろ' },
-  { value: '#ef4444', label: 'あか' },
-  { value: '#f59e0b', label: 'オレンジ' },
-  { value: '#eab308', label: 'きいろ' },
-  { value: '#22c55e', label: 'みどり' },
-  { value: '#3b82f6', label: 'あお' },
-  { value: '#8b5cf6', label: 'むらさき' },
-  { value: '#ec4899', label: 'ピンク' },
-] as const;
-
-const LINE_WIDTHS = [4, 8, 16, 24] as const;
 
 const toRgba = (hex: string): Rgba => {
   const value = hex.slice(1);
@@ -84,8 +71,8 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const history = useRef<DrawingHistoryEntry[]>([]);
   const nextFillFeedbackId = useRef(0);
   const [tool, setTool] = useState<Tool>('pen');
-  const [color, setColor] = useState<string>(COLORS[0].value);
-  const [lineWidth, setLineWidth] = useState<number>(LINE_WIDTHS[1]);
+  const [color, setColor] = useState<string>(DEFAULT_DRAWING_COLOR);
+  const [lineWidth, setLineWidth] = useState<number>(DEFAULT_LINE_WIDTH);
   const [canUndo, setCanUndo] = useState(false);
   const [canClear, setCanClear] = useState(false);
   const [fillFeedback, setFillFeedback] = useState<FillFeedback | null>(null);
@@ -525,78 +512,18 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
         ))}
       </div>
 
-      <div className={styles.toolbar} aria-label="おえかきのどうぐ">
-        <div className={styles.toolGroup} role="group" aria-label="どうぐを選ぶ">
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'pen'}
-            onClick={() => setTool('pen')}
-          >
-            ペン
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'eraser'}
-            onClick={() => setTool('eraser')}
-          >
-            けしゴム
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'fill'}
-            onClick={() => setTool('fill')}
-          >
-            ぬりつぶし
-          </button>
-        </div>
-
-        <div className={styles.colorGroup} role="group" aria-label="色を選ぶ">
-          {COLORS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={styles.colorButton}
-              style={{ '--color-swatch': option.value } as CSSProperties}
-              aria-label={`${option.label}を選ぶ`}
-              aria-pressed={color === option.value}
-              onClick={() => setColor(option.value)}
-            />
-          ))}
-        </div>
-
-        <label className={styles.lineWidthLabel}>
-          太さ
-          <select value={lineWidth} onChange={(event) => setLineWidth(Number(event.target.value))}>
-            {LINE_WIDTHS.map((width) => (
-              <option key={width} value={width}>
-                {width}px
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className={styles.actionGroup}>
-          <button
-            type="button"
-            className={styles.actionButton}
-            disabled={!canUndo}
-            onClick={handleUndo}
-          >
-            ひとつ戻す
-          </button>
-          <button
-            type="button"
-            className={styles.clearButton}
-            disabled={!canClear}
-            onClick={handleClear}
-          >
-            全部消す
-          </button>
-        </div>
-      </div>
+      <DrawingToolbar
+        tool={tool}
+        onToolChange={setTool}
+        color={color}
+        onColorChange={setColor}
+        lineWidth={lineWidth}
+        onLineWidthChange={setLineWidth}
+        canUndo={canUndo}
+        canClear={canClear}
+        onUndo={handleUndo}
+        onClear={handleClear}
+      />
 
       <div className={styles.drawingArea}>
         <canvas
