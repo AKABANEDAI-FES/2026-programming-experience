@@ -460,7 +460,7 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     const target = event.target;
     if (
       target instanceof HTMLElement &&
-      (target.isContentEditable || target.closest('input, textarea, select, [role="textbox"]'))
+      (target.isContentEditable || target.closest('input, textarea, [role="textbox"]'))
     ) {
       return;
     }
