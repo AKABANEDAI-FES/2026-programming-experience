@@ -120,11 +120,11 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   };
 
   const clearFillFeedback = useCallback(() => {
-  const highlightContext = highlightCanvasRef.current?.getContext('2d');
+    const highlightContext = highlightCanvasRef.current?.getContext('2d');
 
-  highlightContext?.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
-  setFillFeedback(null);
-}, []);
+    highlightContext?.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
+    setFillFeedback(null);
+  }, []);
 
   const showFillFeedback = (message: string, mask?: Uint8Array) => {
     const highlightContext = highlightCanvasRef.current?.getContext('2d');
@@ -160,14 +160,11 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       return;
     }
 
-    const timeoutId = window.setTimeout(
-      clearFillFeedback,
-      FILL_FEEDBACK_DURATION_MS,
-    );
+    const timeoutId = window.setTimeout(clearFillFeedback, FILL_FEEDBACK_DURATION_MS);
 
     return () => window.clearTimeout(timeoutId);
   }, [fillFeedback, clearFillFeedback]);
-  
+
   useEffect(() => {
     const backgroundCanvas = backgroundCanvasRef.current;
     const canvas = canvasRef.current;
