@@ -43,6 +43,7 @@ type CursorIndicator = {
 const DRAWING_WIDTH = 1000;
 const DRAWING_HEIGHT = 600;
 const MAX_HISTORY_ENTRIES = 10;
+const FILL_FEEDBACK_DURATION_MS = 3000;
 const UNFILLABLE_MESSAGE = 'この範囲は塗りつぶせないよ。線で囲んでみよう！';
 const FILL_ERROR_MESSAGE = 'うまく塗りつぶせなかったよ。もう一度試してね。';
 const HIGHLIGHT_COLOR: Rgba = { r: 239, g: 68, b: 68, a: 104 };
@@ -118,12 +119,12 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     setCanUndo(true);
   };
 
-  const clearFillFeedback = () => {
+  const clearFillFeedback = useCallback(() => {
     const highlightContext = highlightCanvasRef.current?.getContext('2d');
 
     highlightContext?.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
     setFillFeedback(null);
-  };
+  }, []);
 
   const showFillFeedback = (message: string, mask?: Uint8Array) => {
     const highlightContext = highlightCanvasRef.current?.getContext('2d');
@@ -153,6 +154,16 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     nextFillFeedbackId.current += 1;
     setFillFeedback({ id: nextFillFeedbackId.current, message });
   };
+
+  useEffect(() => {
+    if (fillFeedback === null) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(clearFillFeedback, FILL_FEEDBACK_DURATION_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fillFeedback, clearFillFeedback]);
 
   useEffect(() => {
     const backgroundCanvas = backgroundCanvasRef.current;
