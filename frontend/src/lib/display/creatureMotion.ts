@@ -43,7 +43,7 @@ export type CreatureMotion = {
   targetVy: number;
   /** 次に向きを決め直すまでの残り時間（ミリ秒） */
   wanderRemaining: number;
-  /** 見た目の左右の向き。-1（左）〜 1（右）をなめらかに行き来する */
+  /** 進んでいる左右の向き。-1（左）〜 1（右）をなめらかに行き来し、傾きの向きに使う */
   facing: number;
   /** 上下のふわふわの位相（ラジアン） */
   bobPhase: number;
@@ -55,7 +55,6 @@ export type CreatureVisual = {
   x: number;
   y: number;
   rotation: number;
-  facing: number;
   sayText: string | null;
 };
 
@@ -88,7 +87,8 @@ export const createMotion = (
   bounds: Bounds,
   random: () => number = Math.random,
 ): CreatureMotion => {
-  const direction = random() < 0.5 ? -1 : 1;
+  // 描いたままの向きで登場させたいので、最初は必ず右へ泳ぎ出す
+  const direction = 1;
   const vx = direction * randomBetween(MIN_SPEED, MAX_SPEED, random);
   const vy = randomVerticalSpeed(random);
 
@@ -197,15 +197,15 @@ export const toVisual = (motion: CreatureMotion, commands: Command[]): CreatureV
     motionType === 'jump' ? Math.sin(easeInOut(progress) * Math.PI) * JUMP_HEIGHT : 0;
   const spinAngle = motionType === 'spin' ? easeInOut(progress) * 360 : 0;
 
-  // 上下に進むときは頭をその方向へ少し傾ける。左向きのときは傾きも反転させる
+  // 上下に進むときは、進んでいる側を少し上げ下げする。
+  // 描いた文字が鏡文字にならないよう絵は左右反転させず、左へ進むときは傾きの向きだけを逆にする
   const heading = (Math.atan2(motion.vy, Math.abs(motion.vx)) * 180) / Math.PI;
-  const tilt = clamp(heading, -MAX_TILT_DEG, MAX_TILT_DEG) * (motion.facing < 0 ? -1 : 1);
+  const tilt = clamp(heading, -MAX_TILT_DEG, MAX_TILT_DEG) * motion.facing;
 
   return {
     x: motion.x,
     y: motion.y + Math.sin(motion.bobPhase) * BOB_AMPLITUDE - jumpOffset,
     rotation: tilt + spinAngle,
-    facing: motion.facing,
     sayText: isActing && command.type === 'say' ? command.text : null,
   };
 };

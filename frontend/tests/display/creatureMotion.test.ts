@@ -158,12 +158,34 @@ test('動き終わった後の休み時間は回転もセリフもしない', ()
   assert.equal(toVisual(motionAt({ commandElapsed: 3000 }), say).sayText, null);
 });
 
-test('下へ進むときは頭を下げ、左向きでは傾きも反転する', () => {
+test('下へ進むときは進んでいる側を下げ、左へ進むときは傾きの向きが逆になる', () => {
   const right = toVisual(motionAt({ vx: 60, vy: 20 }), []);
   const left = toVisual(motionAt({ vx: -60, vy: 20, facing: -1 }), []);
 
   assert.ok(right.rotation > 0);
   assert.ok(left.rotation < 0);
+});
+
+test('向きを変えている途中は傾きもなめらかに切り替わる', () => {
+  const right = toVisual(motionAt({ vx: -60, vy: 20, facing: 1 }), []);
+  const turning = toVisual(motionAt({ vx: -60, vy: 20, facing: 0.2 }), []);
+
+  assert.ok(turning.rotation > 0 && turning.rotation < right.rotation);
+});
+
+test('最初は必ず右へ泳ぎ出し、描いた向きのまま登場する', () => {
+  for (const value of [0, 0.3, 0.999]) {
+    const motion = createMotion(BOUNDS, () => value);
+
+    assert.ok(motion.vx > 0);
+    assert.equal(motion.facing, 1);
+  }
+});
+
+test('左へ進んでも絵を左右反転させない', () => {
+  const visual = toVisual(motionAt({ vx: -60, facing: -1 }), []);
+
+  assert.equal('facing' in visual, false);
 });
 
 test('セリフコマンドではテキストを返す', () => {

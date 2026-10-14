@@ -111,7 +111,7 @@ export function DisplayPage() {
 
         motions.current.set(id, nextMotion);
         node.root.style.transform = `translate3d(${visual.x}px, ${visual.y}px, 0)`;
-        node.image.style.transform = `rotate(${visual.rotation}deg) scaleX(${visual.facing})`;
+        node.image.style.transform = `rotate(${visual.rotation}deg)`;
         node.bubble.hidden = visual.sayText === null;
         node.bubble.textContent = visual.sayText;
       }
