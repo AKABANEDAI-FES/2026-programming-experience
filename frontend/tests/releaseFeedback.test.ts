@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getReleaseFeedback, type ReleaseState } from '../src/lib/release-feedback.ts';
 
-test('ふだんは「うみに はなす」を押せる', () => {
+test('ふだんはメッセージを出さず、「うみに はなす」を押せる', () => {
   const feedback = getReleaseFeedback('idle');
 
   assert.equal(feedback.tone, 'idle');
+  assert.equal(feedback.message, null);
   assert.equal(feedback.buttonLabel, 'うみに はなす');
   assert.equal(feedback.buttonDisabled, false);
 });
@@ -32,13 +33,13 @@ test('この PC の準備ができていないときはスタッフを呼ぶよ�
   assert.match(getReleaseFeedback('notReady').detail ?? '', /スタッフを よんでね/);
 });
 
-test('どの状態でもメッセージとボタンの文言がある', () => {
-  const states: ReleaseState[] = ['idle', 'sending', 'processing', 'unknown', 'error', 'notReady'];
+test('ふだん以外の状態ではメッセージを出す', () => {
+  const states: ReleaseState[] = ['sending', 'processing', 'unknown', 'error', 'notReady'];
 
   for (const state of states) {
     const feedback = getReleaseFeedback(state);
 
-    assert.ok(feedback.message.length > 0);
+    assert.ok((feedback.message ?? '').length > 0);
     assert.ok(feedback.buttonLabel.length > 0);
   }
 });

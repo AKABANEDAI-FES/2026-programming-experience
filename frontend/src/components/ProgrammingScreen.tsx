@@ -190,7 +190,6 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
         </div>
       </div>
 
-      <p className={styles.hint}>ブロックを おかなくても うみに はなせるよ</p>
       <img className={styles.guideImage} src={inyaaGuide} alt="" />
 
       <div className={styles.panel}>
@@ -216,30 +215,33 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
         <div ref={blocklySlotRef} className={styles.blocklySlot} />
       </div>
 
-      <div
-        className={styles.message}
-        data-tone={feedback.tone}
-        role={feedback.tone === 'error' ? 'alert' : 'status'}
-      >
-        {feedback.tone === 'sending' && (
-          <span className={styles.dots} aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-        )}
-        {feedback.tone === 'error' && (
-          <span className={styles.errorMark} aria-hidden="true">
-            !
-          </span>
-        )}
-        <span className={styles.messageText}>
-          <span className={styles.messageMain}>{feedback.message}</span>
-          {feedback.detail !== null && (
-            <span className={styles.messageDetail}>{feedback.detail}</span>
+      {/* ふだんは「うみに はなす」ボタンだけで伝わるので、送信中・失敗のときだけ出す */}
+      {feedback.message !== null && (
+        <div
+          className={styles.message}
+          data-tone={feedback.tone}
+          role={feedback.tone === 'error' ? 'alert' : 'status'}
+        >
+          {feedback.tone === 'sending' && (
+            <span className={styles.dots} aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
           )}
-        </span>
-      </div>
+          {feedback.tone === 'error' && (
+            <span className={styles.errorMark} aria-hidden="true">
+              !
+            </span>
+          )}
+          <span className={styles.messageText}>
+            <span className={styles.messageMain}>{feedback.message}</span>
+            {feedback.detail !== null && (
+              <span className={styles.messageDetail}>{feedback.detail}</span>
+            )}
+          </span>
+        </div>
+      )}
 
       <button
         type="button"

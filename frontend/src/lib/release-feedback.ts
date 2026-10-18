@@ -15,7 +15,8 @@ export type ReleaseState =
 export type ReleaseFeedback = {
   /** 見た目（ふだん・送信中・失敗） */
   tone: 'idle' | 'sending' | 'error';
-  message: string;
+  /** メッセージ欄に出す文。ふだんはボタンだけで伝わるので出さない（null） */
+  message: string | null;
   /** 2行目の補足（どうすればいいか） */
   detail: string | null;
   buttonLabel: string;
@@ -31,7 +32,7 @@ export const getReleaseFeedback = (state: ReleaseState): ReleaseFeedback => {
     case 'idle':
       return {
         tone: 'idle',
-        message: 'できたら うみに はなそう →',
+        message: null,
         detail: null,
         buttonLabel: 'うみに はなす',
         buttonDisabled: false,
