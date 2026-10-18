@@ -43,3 +43,60 @@ test('セリフが最大文字数を超える場合はエラーにする', () =>
     message: `commands[0].text は${MAX_SAY_TEXT_LENGTH}文字以下で指定してください`,
   });
 });
+
+const requestWith = (commands: unknown[]) => ({
+  image_base64: 'data:image/png;base64,AAAA',
+  commands,
+});
+
+const jump = { type: 'move', motion: 'jump' };
+
+test('くりかえしを受け付ける', () => {
+  const result = validateReleaseRequest(
+    requestWith([{ type: 'repeat', times: 3, commands: [jump, { type: 'say', text: 'やあ' }] }]),
+  );
+
+  assert.equal(result.success, true);
+});
+
+test('くりかえしの回数は 2〜5 の整数だけ受け付ける', () => {
+  for (const times of [1, 6, 2.5, '3']) {
+    const result = validateReleaseRequest(
+      requestWith([{ type: 'repeat', times, commands: [jump] }]),
+    );
+
+    assert.equal(result.success, false, String(times));
+  }
+});
+
+test('くりかえしの中にくりかえしは入れられない', () => {
+  const result = validateReleaseRequest(
+    requestWith([
+      { type: 'repeat', times: 2, commands: [{ type: 'repeat', times: 2, commands: [jump] }] },
+    ]),
+  );
+
+  assert.deepEqual(result, {
+    success: false,
+    message: 'commands[0].commands[0] くりかえしの中に、くりかえしは入れられません',
+  });
+});
+
+test('くりかえしの中のコマンドも確認する', () => {
+  const result = validateReleaseRequest(
+    requestWith([{ type: 'repeat', times: 2, commands: [{ type: 'move', motion: 'fly' }] }]),
+  );
+
+  assert.equal(result.success, false);
+  assert.match(result.success ? '' : result.message, /^commands\[0\]\.commands\[0\]\.motion/);
+});
+
+test('くりかえしの中も合わせて5個を超えるとエラーにする', () => {
+  const four = { type: 'repeat', times: 2, commands: [jump, jump, jump] };
+
+  assert.equal(validateReleaseRequest(requestWith([four, jump])).success, true);
+  assert.deepEqual(validateReleaseRequest(requestWith([four, jump, jump])), {
+    success: false,
+    message: 'commands は、くりかえしの中も合わせて5個以下で指定してください',
+  });
+});

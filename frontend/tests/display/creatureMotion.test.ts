@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { Command } from 'shared';
+// 大画面の動きは、くりかえしを展開した後のコマンド（BasicCommand）を受け取る
+import type { BasicCommand as Command } from 'shared';
 import {
   CREATURE_HEIGHT,
   CREATURE_WIDTH,

@@ -15,10 +15,39 @@ export interface SayCommand {
   text: string;
 }
 
-export type Command = MoveCommand | SayCommand;
+/** くりかえしの中に入れられるコマンド（くりかえしの中にくりかえしは入れない） */
+export type BasicCommand = MoveCommand | SayCommand;
 
-/** 画面③で追加できるコマンドの上限 */
+/** くりかえす回数の範囲 */
+export const MIN_REPEAT_TIMES = 2;
+export const MAX_REPEAT_TIMES = 5;
+
+export interface RepeatCommand {
+  type: 'repeat';
+  /** MIN_REPEAT_TIMES 〜 MAX_REPEAT_TIMES の整数 */
+  times: number;
+  commands: BasicCommand[];
+}
+
+export type Command = BasicCommand | RepeatCommand;
+
+/** 画面③で追加できるコマンドの上限（くりかえし自体と、その中のコマンドも数える） */
 export const MAX_COMMANDS = 5;
+
+/** ブロックの数を数える。くりかえしは、くりかえし自体と中のコマンドを合わせて数える */
+export const countCommands = (commands: readonly Command[]): number =>
+  commands.reduce(
+    (count, command) => count + 1 + (command.type === 'repeat' ? command.commands.length : 0),
+    0,
+  );
+
+/** 再生するときの並びにする。くりかえしは中身を回数分だけ並べる */
+export const expandCommands = (commands: readonly Command[]): BasicCommand[] =>
+  commands.flatMap((command) =>
+    command.type === 'repeat'
+      ? Array.from({ length: command.times }, () => command.commands).flat()
+      : [command],
+  );
 
 // 【設定】セリフ1件の最大文字数。調整するときはこの数値を変更する。
 export const MAX_SAY_TEXT_LENGTH = 25;

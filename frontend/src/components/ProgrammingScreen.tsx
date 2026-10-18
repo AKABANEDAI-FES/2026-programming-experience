@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { MAX_COMMANDS, type Command, type ReleaseRequest, type ReleaseResponse } from 'shared';
+import { countCommands } from 'shared/release';
 import inyaaGuide from '../assets/inyaa-guide.png';
 import { getReleaseFeedback, type ReleaseState } from '../lib/release-feedback';
 import {
@@ -70,7 +71,9 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
   const requestInFlightRef = useRef(false);
   const blocklySlotRef = useRef<HTMLDivElement>(null);
   const feedback = getReleaseFeedback(releaseState);
-  const isFull = commands.length >= MAX_COMMANDS;
+  // くりかえしの中のブロックも合わせて数える（バックエンドの上限と同じ数え方）
+  const usedBlocks = countCommands(commands);
+  const isFull = usedBlocks >= MAX_COMMANDS;
 
   const handleCommandsChange = useCallback((nextCommands: Command[]) => {
     setCommands(nextCommands);
@@ -203,11 +206,11 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
             </span>
             <span className={styles.pips} aria-hidden="true">
               {Array.from({ length: MAX_COMMANDS }, (_, index) => (
-                <span key={index} className={styles.pip} data-used={index < commands.length} />
+                <span key={index} className={styles.pip} data-used={index < usedBlocks} />
               ))}
             </span>
             <span className={styles.counterValue}>
-              {commands.length} / {MAX_COMMANDS}
+              {usedBlocks} / {MAX_COMMANDS}
             </span>
           </div>
         </div>

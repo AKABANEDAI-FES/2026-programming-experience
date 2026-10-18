@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Creature } from 'shared';
-import { MAX_CREATURES } from 'shared/release';
+import { expandCommands, MAX_CREATURES, type BasicCommand } from 'shared/release';
 import {
   addCreature,
   restoreCreatures,
@@ -33,7 +33,8 @@ export function DisplayPage() {
   // setState の更新関数は StrictMode で2回呼ばれるため、副作用を伴う追加処理は ref の値をもとに行う
   const creaturesRef = useRef<Creature[]>([]);
   const motions = useRef(new Map<string, CreatureMotion>());
-  const commands = useRef(new Map<string, Creature['commands']>());
+  // くりかえしは展開して、再生する順に並べたコマンドを持っておく
+  const commands = useRef(new Map<string, BasicCommand[]>());
   const nodes = useRef(new Map<string, CreatureNode>());
 
   const updateCreatures = useCallback((result: AddCreatureResult<Creature>) => {
@@ -51,7 +52,7 @@ export function DisplayPage() {
     for (const creature of result.creatures) {
       if (!motions.current.has(creature.id)) {
         motions.current.set(creature.id, createMotion(bounds));
-        commands.current.set(creature.id, creature.commands);
+        commands.current.set(creature.id, expandCommands(creature.commands));
       }
     }
 
