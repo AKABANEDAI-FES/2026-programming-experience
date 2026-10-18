@@ -27,6 +27,8 @@ const TURN_RATE = 4;
 const BOB_AMPLITUDE = 8;
 const BOB_SPEED = 1.8;
 const MAX_TILT_DEG = 18;
+/** ジャンプやセリフの吹き出しが上端で見切れないよう、作品の上にあけておく高さ */
+const TOP_MARGIN = JUMP_HEIGHT + BOB_AMPLITUDE;
 
 export type Bounds = {
   width: number;
@@ -83,6 +85,12 @@ const randomBetween = (min: number, max: number, random: () => number): number =
 const randomVerticalSpeed = (random: () => number): number =>
   (random() - 0.5) * 2 * MAX_VERTICAL_SPEED;
 
+const verticalRange = (bounds: Bounds): { minY: number; maxY: number } => {
+  const maxY = Math.max(0, bounds.height - CREATURE_HEIGHT);
+
+  return { minY: Math.min(TOP_MARGIN, maxY), maxY };
+};
+
 export const createMotion = (
   bounds: Bounds,
   random: () => number = Math.random,
@@ -91,10 +99,11 @@ export const createMotion = (
   const direction = 1;
   const vx = direction * randomBetween(MIN_SPEED, MAX_SPEED, random);
   const vy = randomVerticalSpeed(random);
+  const { minY, maxY } = verticalRange(bounds);
 
   return {
     x: random() * Math.max(0, bounds.width - CREATURE_WIDTH),
-    y: random() * Math.max(0, bounds.height - CREATURE_HEIGHT),
+    y: minY + random() * (maxY - minY),
     vx,
     vy,
     targetVx: vx,
@@ -116,7 +125,7 @@ export const stepMotion = (
 ): CreatureMotion => {
   const seconds = deltaMs / 1000;
   const maxX = Math.max(0, bounds.width - CREATURE_WIDTH);
-  const maxY = Math.max(0, bounds.height - CREATURE_HEIGHT);
+  const { minY, maxY } = verticalRange(bounds);
 
   let { x, y, vx, vy, targetVx, targetVy, wanderRemaining, facing, bobPhase } = motion;
   let { commandIndex, commandElapsed } = motion;
@@ -139,7 +148,7 @@ export const stepMotion = (
     targetVx = -Math.abs(targetVx);
   }
 
-  if (y < EDGE_MARGIN) {
+  if (y < minY + EDGE_MARGIN) {
     targetVy = Math.abs(targetVy);
   } else if (y > maxY - EDGE_MARGIN) {
     targetVy = -Math.abs(targetVy);
@@ -151,7 +160,7 @@ export const stepMotion = (
   vy += (targetVy - vy) * steer;
 
   x = clamp(x + vx * seconds, 0, maxX);
-  y = clamp(y + vy * seconds, 0, maxY);
+  y = clamp(y + vy * seconds, minY, maxY);
 
   const targetFacing = vx < 0 ? -1 : 1;
 
