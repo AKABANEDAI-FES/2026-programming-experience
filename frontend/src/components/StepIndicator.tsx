@@ -22,8 +22,11 @@ export function StepIndicator({ current }: StepIndicatorProps) {
             data-state={state}
             aria-current={state === 'current' ? 'step' : undefined}
           >
-            <span className={styles.number}>{state === 'done' ? '✓' : step}</span>
-            {label}
+            {/* 今いる手順のオレンジの背景は、手順の間の ▶ に掛からないよう中身だけに付ける */}
+            <span className={styles.pill}>
+              <span className={styles.number}>{state === 'done' ? '✓' : step}</span>
+              {label}
+            </span>
           </li>
         );
       })}
