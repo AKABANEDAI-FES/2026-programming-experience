@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ReleaseRequest } from 'shared';
+import { MOTIONS } from 'shared/release';
 import app from '../src/index.ts';
 import {
   RELEASE_RECORD_PREFIX,
@@ -326,9 +327,10 @@ test('定義されていない動きは400で拒否し、定義済みの動き�
   );
 
   assert.equal(invalid.status, 400);
+  // 動きを増やしてもこのテストを直さなくて済むよう、許可する動きの一覧は MOTIONS から作る
   assert.equal(
     (await invalid.json()).message,
-    'commands[0].motion は "jump" または "spin" を指定してください',
+    `commands[0].motion は ${MOTIONS.map((motion) => `"${motion}"`).join(' または ')} を指定してください`,
   );
   assert.equal(harness.puts.length, 0);
   assert.equal(harness.notifications.length, 0);
