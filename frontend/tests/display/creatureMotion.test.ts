@@ -201,3 +201,24 @@ test('初期位置は画面の内側に収まる', () => {
   assert.ok(motion.x <= BOUNDS.width - CREATURE_WIDTH);
   assert.ok(motion.y >= 0);
 });
+
+test('上端でジャンプしても作品が画面の外に出ない', () => {
+  const commands: Command[] = [{ type: 'move', motion: 'jump' }];
+  const atTop = stepMotion(motionAt({ y: 0, vy: -18, targetVy: -18 }), [], FRAME_MS, BOUNDS);
+  const fromCreate = createMotion(BOUNDS, () => 0);
+
+  for (const motion of [atTop, fromCreate]) {
+    const peak = toVisual({ ...motion, bobPhase: -Math.PI / 2, commandElapsed: 500 }, commands);
+
+    assert.ok(peak.y >= 0);
+  }
+});
+
+test('上端でセリフを再生しても吹き出しの分の余白がある', () => {
+  const bubbleHeight = 60;
+  const commands: Command[] = [{ type: 'say', text: 'こんにちは' }];
+  const atTop = stepMotion(motionAt({ y: 0, vy: -18, targetVy: -18 }), [], FRAME_MS, BOUNDS);
+  const visual = toVisual({ ...atTop, bobPhase: -Math.PI / 2 }, commands);
+
+  assert.ok(visual.y >= bubbleHeight);
+});
