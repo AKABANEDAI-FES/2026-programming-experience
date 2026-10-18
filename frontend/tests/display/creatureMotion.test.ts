@@ -243,7 +243,7 @@ test('はやく およぐ：休み時間は、ふだんの速さに戻る', () =
   );
 });
 
-test('おおきく なる：途中で大きくなり、終わると元の大きさに戻る', () => {
+test('ふくらむ：途中で大きくなり、終わると元の大きさに戻る', () => {
   const grow: Command[] = [{ type: 'move', motion: 'grow' }];
 
   assert.ok(toVisual(motionAt({ commandElapsed: 750 }), grow).scale > 1.5);

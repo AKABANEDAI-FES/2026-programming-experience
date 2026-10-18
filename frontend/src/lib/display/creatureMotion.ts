@@ -10,7 +10,7 @@ const SAY_DURATION_MS = 2500;
 /** はやく およぐ：泳ぐ速さを、なめらかに最大でこの倍率まで上げてから戻す */
 const DASH_DURATION_MS = 1200;
 const DASH_MAX_SPEED_RATE = 3;
-/** おおきく なる：この倍率まで大きくなってから戻る */
+/** ふくらむ：この倍率まで大きくなってから戻る（大きいままにはしない） */
 const GROW_DURATION_MS = 1500;
 const GROW_MAX_SCALE = 1.6;
 /** ぶるぶる ふるえる：左右に小刻みに震える */

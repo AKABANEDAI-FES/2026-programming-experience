@@ -13,7 +13,7 @@ const createRequestWithMotion = (motion: string) => ({
   commands: [{ type: 'move', motion }],
 });
 
-test('すべての動き（はやく およぐ・おおきく なる・ぶるぶる ふるえる を含む）を受け付ける', () => {
+test('すべての動き（はやく およぐ・ふくらむ・ぶるぶる ふるえる を含む）を受け付ける', () => {
   for (const motion of MOTIONS) {
     assert.equal(validateReleaseRequest(createRequestWithMotion(motion)).success, true, motion);
   }

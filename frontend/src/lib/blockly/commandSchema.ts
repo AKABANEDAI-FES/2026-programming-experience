@@ -16,6 +16,6 @@ export const MOTION_OPTIONS: [label: string, motion: Motion][] = [
   ['ジャンプする', 'jump'],
   ['くるっとまわる', 'spin'],
   ['はやく およぐ', 'dash'],
-  ['おおきく なる', 'grow'],
+  ['ふくらむ', 'grow'],
   ['ぶるぶる ふるえる', 'shake'],
 ];
