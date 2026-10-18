@@ -1,31 +1,4 @@
 /* ホーム画面（デザイン案 1c「かみが うかぶ」）。数値は 1920×1080 の舞台での実寸 */
-.screen {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  background: #4fa3dc url('/api/assets/ocean-background.jpg') center bottom / cover no-repeat;
-  font-family: var(--font-rounded);
-  color: var(--ink);
-}
-
-/* 舞台は画面の中央に置き、中央を基準に縮める（transform は HomeScreen.tsx で指定） */
-.stage {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform-origin: center;
-}
-
-/* 上の白いぼかしは画面の端まで広げる */
-.screen::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 28%;
-  background: linear-gradient(180deg, rgb(255 255 255 / 90%), rgb(255 255 255 / 0%));
-  pointer-events: none;
-}
-
 .titleArea {
   position: absolute;
   top: 56px;

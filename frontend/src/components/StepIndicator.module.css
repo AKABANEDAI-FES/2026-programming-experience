@@ -1,0 +1,68 @@
+/* 数値は 1920×1080 の舞台での実寸 */
+.steps {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 0;
+  padding: 12px 32px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 6px 0 rgb(23 48 90 / 12%);
+  list-style: none;
+  font-size: 32px;
+  font-weight: 800;
+  transform: translateX(-50%);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #5a7391;
+}
+
+/* 手順の間の ▶ */
+.step + .step::before {
+  content: '▶';
+  margin-right: 8px;
+  color: #9ec3de;
+}
+
+.number {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 4px solid var(--sea-200);
+  border-radius: 50%;
+}
+
+.step[data-state='done'] {
+  color: var(--sea-700);
+}
+
+.step[data-state='done'] .number {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  background: var(--sea-700);
+  color: var(--white);
+}
+
+.step[data-state='current'] {
+  padding: 6px 26px 6px 8px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: var(--white);
+}
+
+.step[data-state='current'] .number {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  background: var(--white);
+  color: var(--orange);
+}

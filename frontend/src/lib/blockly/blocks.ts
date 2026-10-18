@@ -32,7 +32,7 @@ export const defineCommandBlocks = () => {
       ],
       previousStatement: null,
       nextStatement: null,
-      colour: 200,
+      colour: '#1F6FB8',
       tooltip: 'キャラクターの うごきを えらびます',
     },
     {
@@ -47,7 +47,7 @@ export const defineCommandBlocks = () => {
       ],
       previousStatement: null,
       nextStatement: null,
-      colour: 160,
+      colour: '#D9536F',
       tooltip: `キャラクターに しゃべらせる ことばを きめます（${MAX_SAY_TEXT_LENGTH}もじまで）`,
       extensions: [SAY_TEXT_LIMIT_EXTENSION],
     },

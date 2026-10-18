@@ -1,139 +1,282 @@
-.screen {
-  width: 100%;
+/* プログラミング画面（デザイン案 2b）。数値は 1920×1080 の舞台での実寸 */
+.creatureCard {
+  position: absolute;
+  left: 60px;
+  top: 150px;
+  width: 460px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 40px;
-  box-sizing: border-box;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 40px;
+  background: var(--white);
+  box-shadow: 0 14px 0 var(--card-shadow);
 }
 
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.label {
+.cardTitle {
   margin: 0;
-  color: #316b5f;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.title,
-.description {
-  margin: 0;
-}
-
-.title {
   font-size: 32px;
-  line-height: 1.2;
+  font-weight: 800;
 }
 
-.description {
-  color: #52635f;
-}
-
-.workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
-  gap: 24px;
-  min-height: 460px;
-}
-
-.editor {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 8px;
-  min-height: 0;
-}
-
-.counter {
-  margin: 0;
-  color: #316b5f;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.emptyProgramHint {
-  color: #52635f;
-  font-size: 14px;
-}
-
-.stage,
-.editorContainer {
-  border: 2px solid #aebfba;
-  border-radius: 16px;
-  background: #fff;
-}
-
-.stage {
+.creatureFrame {
+  height: 247px;
   display: grid;
   place-items: center;
-  min-height: 360px;
   overflow: hidden;
-  background: #f7fbfa;
+  border: 3px solid #d7e6ee;
+  border-radius: 12px;
+  /* 外側が透明な作品でも、白い部分がわかるように薄い水色を敷く */
+  background: var(--sea-50);
 }
 
-.targetImage {
-  display: block;
+.creatureImage {
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: contain;
 }
 
-.editorContainer {
+.hint {
+  position: absolute;
+  left: 60px;
+  top: 560px;
+  width: 440px;
+  margin: 0;
+  padding: 22px 30px;
+  border-radius: 36px;
+  background: var(--white);
+  box-shadow: 0 8px 0 rgb(23 48 90 / 15%);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.guideImage {
+  position: absolute;
+  left: 90px;
+  bottom: 40px;
+  width: 300px;
+  height: auto;
+  filter: drop-shadow(0 12px 16px rgb(23 48 90 / 25%));
+}
+
+.panel {
+  position: absolute;
+  left: 560px;
+  top: 150px;
+  width: 1300px;
+  height: 710px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 40px;
+  background: var(--white);
+  box-shadow: 0 14px 0 var(--card-shadow);
+}
+
+.panelHeader {
+  height: 100px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px;
+  border-bottom: 3px solid var(--sea-50);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 800;
+}
+
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  border-radius: 999px;
+  background: var(--sea-50);
+}
+
+.counter[data-full='true'] {
+  background: #fff6d9;
+}
+
+.counterLabel {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.pips {
+  display: flex;
+  gap: 8px;
+}
+
+.pip {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #d7e6ee;
+}
+
+.pip[data-used='true'] {
+  background: var(--sea-700);
+}
+
+.counterValue {
+  font-size: 36px;
+  font-weight: 800;
+}
+
+/* Blockly を重ねる場所。中身は BlocklyOverlay が描く */
+.blocklySlot {
+  flex: 1;
+  min-height: 0;
+}
+
+.blocklyOverlay {
+  position: fixed;
+  /* 角丸のパネルからはみ出さないよう、下の角だけ丸める（縮めても見た目が近くなるよう % で指定） */
+  border-radius: 0 0 2.5% 2.5% / 0 0 4% 4%;
   overflow: hidden;
 }
 
-.editorContainer[inert] {
-  opacity: 0.7;
+.blocklyOverlay[inert] {
+  opacity: 0.6;
 }
 
-.statusMessage,
-.errorMessage {
-  margin: 0;
+.message {
+  position: absolute;
+  left: 560px;
+  top: 896px;
+  width: 700px;
+  height: 134px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 36px;
+  border: 4px solid var(--white);
+  border-radius: 40px;
+  background: rgb(255 255 255 / 92%);
+}
+
+.message[data-tone='sending'] {
+  border-color: var(--sea-700);
+  background: var(--sea-700);
+  color: var(--white);
+}
+
+.message[data-tone='error'] {
+  border-color: #e5383b;
+  background: #fff0f2;
+}
+
+.messageText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.messageMain {
+  font-size: 36px;
+  font-weight: 800;
+}
+
+.message[data-tone='error'] .messageMain {
+  color: #a3161f;
+}
+
+.messageDetail {
+  font-size: 26px;
   font-weight: 700;
 }
 
-.statusMessage {
-  color: #316b5f;
+.errorMark {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5383b;
+  color: var(--white);
+  font-size: 44px;
+  font-weight: 800;
 }
 
-.errorMessage {
-  color: #b42318;
+.dots {
+  display: flex;
+  gap: 10px;
+}
+
+.dots span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--white);
+  animation: blink 1.2s infinite ease-in-out;
+}
+
+.dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .releaseButton {
-  align-self: center;
-  min-width: 200px;
-  min-height: 48px;
-  padding: 12px 28px;
+  position: absolute;
+  left: 1300px;
+  top: 896px;
+  width: 560px;
+  height: 134px;
   border: 0;
   border-radius: 999px;
-  background: #316b5f;
-  color: #fff;
+  background: var(--orange);
+  box-shadow: 0 12px 0 var(--orange-shadow);
+  color: var(--white);
   font: inherit;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 60px;
+  font-weight: 800;
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+.releaseButton:hover:not(:disabled) {
+  background: var(--orange-hover);
+}
+
+/* 押すとボタンが沈む */
+.releaseButton:active:not(:disabled) {
+  transform: translateY(12px);
+  box-shadow: none;
 }
 
 .releaseButton:disabled {
+  background: #c9d9e6;
+  box-shadow: none;
+  color: #7a8ca0;
   cursor: wait;
-  opacity: 0.65;
 }
 
-@media (max-width: 760px) {
-  .screen {
-    padding: 24px 16px;
-  }
-
-  .title {
-    font-size: 28px;
-  }
-
-  .workspace {
-    grid-template-columns: 1fr;
-  }
+.releaseButton:focus-visible {
+  outline: 6px solid var(--sea-700);
+  outline-offset: 6px;
 }
