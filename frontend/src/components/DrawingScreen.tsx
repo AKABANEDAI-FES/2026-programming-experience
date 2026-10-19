@@ -7,7 +7,11 @@ import {
   type PointerEvent,
 } from 'react';
 import type { DrawMode } from 'shared';
-import inyaaOutline from '../assets/inyaa-outline.svg';
+import {
+  COLORING_TEMPLATES,
+  DEFAULT_COLORING_TEMPLATE_ID,
+  type ColoringTemplateId,
+} from '../constants/coloringTemplates';
 import { DRAW_MODES, DRAW_MODE_COPY } from '../constants/drawModes';
 import { applyFillToEditingLayer } from '../lib/paint/applyFillToEditingLayer';
 import { clearOuterBackground } from '../lib/paint/clearOuterBackground';
@@ -91,7 +95,10 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const [canClear, setCanClear] = useState(false);
   const [fillFeedback, setFillFeedback] = useState<FillFeedback | null>(null);
   const [cursorIndicator, setCursorIndicator] = useState<CursorIndicator | null>(null);
+  const [templateId, setTemplateId] = useState<ColoringTemplateId>(DEFAULT_COLORING_TEMPLATE_ID);
   const copy = DRAW_MODE_COPY[mode];
+  const templateSrc =
+    COLORING_TEMPLATES.find(({ id }) => id === templateId)?.src ?? COLORING_TEMPLATES[0].src;
 
   const cancelActiveStroke = () => {
     const pointerId = activePointerId.current;
@@ -204,9 +211,10 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
         return;
       }
 
+      // 下絵はキャンバスと同じ 1000×600 で描かれているため、全体に収まるように描く
       const scale = Math.min(
-        (DRAWING_WIDTH * 0.7) / outlineImage.naturalWidth,
-        (DRAWING_HEIGHT * 0.8) / outlineImage.naturalHeight,
+        DRAWING_WIDTH / outlineImage.naturalWidth,
+        DRAWING_HEIGHT / outlineImage.naturalHeight,
       );
       const width = outlineImage.naturalWidth * scale;
       const height = outlineImage.naturalHeight * scale;
@@ -225,13 +233,13 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
         isReadyToDraw.current = true;
       }
     };
-    outlineImage.src = inyaaOutline;
+    outlineImage.src = templateSrc;
 
     return () => {
       isCurrent = false;
       cancelActiveStroke();
     };
-  }, [mode]);
+  }, [mode, templateSrc]);
 
   const getPoint = (event: PointerEvent<HTMLCanvasElement>): Point => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -484,6 +492,32 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     onModeChange(nextMode);
   };
 
+  const handleTemplateChange = (nextTemplateId: ColoringTemplateId) => {
+    const context = canvasRef.current?.getContext('2d');
+
+    if (nextTemplateId === templateId || context === null || context === undefined) {
+      return;
+    }
+
+    // 別の下絵に前の色がずれて残らないよう、描いた内容は消す。
+    // 「ひとつ戻す」で前の下絵の色が戻らないよう、履歴もリセットする
+    if (
+      hasDrawing.current &&
+      !window.confirm('ぬりえを かえると、いま かいた えは ぜんぶ きえるよ。かえる？')
+    ) {
+      return;
+    }
+
+    cancelActiveStroke();
+    clearFillFeedback();
+    context.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
+    hasDrawing.current = false;
+    history.current = [];
+    setCanUndo(false);
+    setCanClear(false);
+    setTemplateId(nextTemplateId);
+  };
+
   const handleNext = () => {
     const backgroundCanvas = backgroundCanvasRef.current;
     const editingCanvas = canvasRef.current;
@@ -535,6 +569,23 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
           </button>
         ))}
       </div>
+
+      {mode === 'coloring' && (
+        <div className={styles.templateSwitcher} role="group" aria-label="ぬりえを えらぶ">
+          {COLORING_TEMPLATES.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className={styles.templateButton}
+              aria-pressed={templateId === template.id}
+              onClick={() => handleTemplateChange(template.id)}
+            >
+              <img className={styles.templateThumbnail} src={template.src} alt="" />
+              {template.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className={styles.toolbar} aria-label="おえかきのどうぐ">
         <div className={styles.toolGroup} role="group" aria-label="どうぐを選ぶ">
