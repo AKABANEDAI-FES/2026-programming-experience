@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { findVisibleArtworkBounds, getTrailAnchor } from '../../src/lib/display/visibleArtworkBounds.ts';
+import {
+  findVisibleArtworkBounds,
+  getTrailAnchor,
+} from '../../src/lib/display/visibleArtworkBounds.ts';
 
 const setAlpha = (rgba: Uint8ClampedArray, width: number, x: number, y: number, alpha: number) => {
   rgba[(y * width + x) * 4 + 3] = alpha;

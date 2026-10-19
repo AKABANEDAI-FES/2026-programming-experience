@@ -109,9 +109,7 @@ const currentMotion = (action: ReturnType<typeof currentAction>): Motion | null 
   action !== null && action.command.type === 'move' ? action.command.motion : null;
 
 const getDashIntensity = (action: ReturnType<typeof currentAction>): number =>
-  currentMotion(action) === 'dash' && action !== null
-    ? Math.sin(action.progress * Math.PI)
-    : 0;
+  currentMotion(action) === 'dash' && action !== null ? Math.sin(action.progress * Math.PI) : 0;
 
 /** 次のコマンドへ進むまでの時間（動き + 休み） */
 export const commandDurationMs = (command: Command): number =>
