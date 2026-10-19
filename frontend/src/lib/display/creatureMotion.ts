@@ -12,12 +12,12 @@ const DASH_DURATION_MS = 1200;
 const DASH_MAX_SPEED_RATE = 3;
 /** ふくらむ：この倍率まで大きくなってから戻る（大きいままにはしない） */
 const GROW_DURATION_MS = 1500;
-const GROW_MAX_SCALE = 1.6;
+const GROW_MAX_SCALE = 1.3;
 /** ぶるぶる ふるえる：左右に小刻みに震える */
 const SHAKE_DURATION_MS = 1000;
-const SHAKE_TIMES = 10;
-const SHAKE_AMPLITUDE = 12;
-const SHAKE_TILT_DEG = 6;
+const SHAKE_TIMES = 6;
+const SHAKE_AMPLITUDE = 6;
+const SHAKE_TILT_DEG = 3;
 /** コマンドの後、次のコマンドまで普通に泳ぐ時間 */
 const COMMAND_REST_MS = 1500;
 

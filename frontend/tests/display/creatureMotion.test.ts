@@ -249,7 +249,7 @@ test('はやく およぐ：休み時間は、ふだんの速さに戻る', () =
 test('ふくらむ：途中で大きくなり、終わると元の大きさに戻る', () => {
   const grow: Command[] = [{ type: 'move', motion: 'grow' }];
 
-  assert.ok(toVisual(motionAt({ commandElapsed: 750 }), grow).scale > 1.5);
+  assert.ok(toVisual(motionAt({ commandElapsed: 750 }), grow).scale > 1.25);
   assert.ok(Math.abs(toVisual(motionAt({ commandElapsed: 1499 }), grow).scale - 1) < 0.01);
   assert.equal(toVisual(motionAt(), []).scale, 1);
 });
@@ -257,11 +257,11 @@ test('ふくらむ：途中で大きくなり、終わると元の大きさに�
 test('ぶるぶる ふるえる：左右に小刻みに揺れる', () => {
   const shake: Command[] = [{ type: 'move', motion: 'shake' }];
   const base = toVisual(motionAt(), []).x;
-  const offsets = [25, 75].map((ms) => toVisual(motionAt({ commandElapsed: ms }), shake).x - base);
+  const offsets = [42, 125].map((ms) => toVisual(motionAt({ commandElapsed: ms }), shake).x - base);
 
   // 揺れの山と谷で、左右逆に動く
-  assert.ok(offsets[0] > 5);
-  assert.ok(offsets[1] < -5);
+  assert.ok(offsets[0] > 4);
+  assert.ok(offsets[1] < -4);
 });
 
 test('どの動きも、終わったあとは次のコマンドへ進む', () => {
