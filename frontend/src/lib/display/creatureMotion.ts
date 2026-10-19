@@ -70,9 +70,9 @@ export type CreatureVisual = {
   rotation: number;
   /** 絵の大きさの倍率（ふだんは 1） */
   scale: number;
-  /** はやく およぐ演出の強さ（0〜1） */
+  /** はやく およぐ の強さ（0〜1）。泡の出る量に使う */
   dashIntensity: number;
-  /** 水流を出す向き */
+  /** 泡を出す向き（進んでいる向き） */
   facing: 'left' | 'right';
   sayText: string | null;
 };

@@ -29,32 +29,23 @@
   will-change: transform;
 }
 
-.creature::before {
+/* はやく およぐ ときの泡。作品の後ろに置かれ、その場に残って流れながら消える */
+.bubbleLayer {
   position: absolute;
-  top: var(--trail-anchor-y, 50%);
-  z-index: 0;
-  width: 64px;
-  height: 72px;
-  border-radius: 50%;
-  background: url('../../assets/water-flow.svg') center / contain no-repeat;
-  content: '';
-  opacity: var(--dash-intensity, 0);
+  inset: 0;
   pointer-events: none;
-  transform: translateY(-50%);
 }
 
-.creature[data-trail-ready='false']::before {
-  display: none;
-}
-
-.creature[data-facing='right']::before {
-  right: calc(100% - var(--trail-anchor-x, 40px) + 8px);
-  mask-image: linear-gradient(to right, transparent, #000 32%, #000 100%);
-}
-
-.creature[data-facing='left']::before {
-  left: calc(var(--trail-anchor-x, 180px) + 8px);
-  mask-image: linear-gradient(to right, #000 0%, #000 68%, transparent);
+.dashBubble {
+  position: absolute;
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.7),
+    rgba(255, 255, 255, 0.1) 60%
+  );
+  will-change: transform, opacity;
 }
 
 .image {
