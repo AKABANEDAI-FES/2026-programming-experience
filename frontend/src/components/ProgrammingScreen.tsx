@@ -1,5 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { MAX_COMMANDS, type Command, type ReleaseRequest, type ReleaseResponse } from 'shared';
+import inyaaGuide from '../assets/inyaa-guide.png';
+import { getReleaseFeedback, type ReleaseState } from '../lib/release-feedback';
 import {
   DEV_RELEASE_TOKEN,
   getReleaseAuthorizationHeader,
@@ -9,31 +11,70 @@ import {
 } from '../lib/release-submission';
 import { BlockWorkspace } from './BlockWorkspace';
 import styles from './ProgrammingScreen.module.css';
+import { StageScreen } from './StageScreen';
+import { StepIndicator } from './StepIndicator';
 
 type ProgrammingScreenProps = {
   imageData: string;
   onReleaseComplete: () => void;
 };
 
-type ReleaseState = 'idle' | 'sending' | 'processing' | 'unknown' | 'error';
+type BlocklyOverlayProps = {
+  slotRef: RefObject<HTMLDivElement | null>;
+  scale: number;
+  disabled: boolean;
+  onCommandsChange: (commands: Command[]) => void;
+};
 
-const PROCESSING_MESSAGE = '送信処理中です。少し待ってから、同じ内容で状況を確認してください。';
-const UNKNOWN_MESSAGE =
-  '保存状況を確認できませんでした。同じ内容のまま、もう一度確認してください。';
-const DEFAULT_ERROR_MESSAGE =
-  '作品を送信できませんでした。内容を確認して、もう一度試してください。';
+/**
+ * Blockly は縮めた舞台の中に置くとドラッグの位置がずれるため、舞台の外に置き、
+ * 舞台の中の置き場所（slot）とぴったり同じ位置・大きさに重ねる。
+ */
+function BlocklyOverlay({ slotRef, scale, disabled, onCommandsChange }: BlocklyOverlayProps) {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const slot = slotRef.current;
+
+      if (slot !== null) {
+        setRect(slot.getBoundingClientRect());
+      }
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+
+    return () => window.removeEventListener('resize', measure);
+  }, [slotRef, scale]);
+
+  return (
+    <div
+      className={styles.blocklyOverlay}
+      style={
+        rect === null
+          ? { visibility: 'hidden' }
+          : { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+      }
+      inert={disabled}
+    >
+      <BlockWorkspace onCommandsChange={onCommandsChange} scale={scale} />
+    </div>
+  );
+}
 
 export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingScreenProps) {
   const [commands, setCommands] = useState<Command[]>([]);
   const [releaseState, setReleaseState] = useState<ReleaseState>('idle');
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const attemptRef = useRef<SubmissionAttempt | null>(null);
   const requestInFlightRef = useRef(false);
+  const blocklySlotRef = useRef<HTMLDivElement>(null);
+  const feedback = getReleaseFeedback(releaseState);
+  const isFull = commands.length >= MAX_COMMANDS;
 
   const handleCommandsChange = useCallback((nextCommands: Command[]) => {
     setCommands(nextCommands);
     setReleaseState('idle');
-    setFeedbackMessage(null);
   }, []);
 
   const sendSubmission = async (attempt: SubmissionAttempt, keyRecoveryCount = 0) => {
@@ -44,13 +85,11 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
     );
 
     if (authorization === null) {
-      setReleaseState('error');
-      setFeedbackMessage('この端末は放流用に設定されていません。スタッフに知らせてください。');
+      setReleaseState('notReady');
       return;
     }
 
     setReleaseState('sending');
-    setFeedbackMessage('作品を保存しています…');
 
     let response: Response;
     let result: ReleaseResponse;
@@ -74,7 +113,6 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
       result = responseBody as ReleaseResponse;
     } catch {
       setReleaseState('unknown');
-      setFeedbackMessage(UNKNOWN_MESSAGE);
       return;
     }
 
@@ -87,19 +125,16 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
 
     if (!result.success && result.code === 'REQUEST_IN_PROGRESS') {
       setReleaseState('processing');
-      setFeedbackMessage(PROCESSING_MESSAGE);
       return;
     }
 
     if (!result.success && result.code === 'RELEASE_STATUS_UNKNOWN') {
       setReleaseState('unknown');
-      setFeedbackMessage(result.message || UNKNOWN_MESSAGE);
       return;
     }
 
     if (!response.ok || !result.success) {
       setReleaseState('error');
-      setFeedbackMessage(result.message || DEFAULT_ERROR_MESSAGE);
       return;
     }
 
@@ -125,62 +160,97 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
       await sendSubmission(attempt);
     } catch {
       setReleaseState('error');
-      setFeedbackMessage('送信キーを作成できませんでした。ページを再読み込みしてください。');
     } finally {
       requestInFlightRef.current = false;
     }
   };
 
+  // 送っている途中や、送れたかわからない間は、ブロックを変えられないようにする
   const isSubmissionUnresolved =
     releaseState === 'sending' || releaseState === 'processing' || releaseState === 'unknown';
 
   return (
-    <section className={styles.screen} aria-labelledby="programming-title">
-      <div className={styles.header}>
-        <p className={styles.label}>プログラミングモード</p>
-        <h1 id="programming-title" className={styles.title}>
-          画像を動かそう
-        </h1>
-        <p className={styles.description}>この画像がプログラミングの対象になります。</p>
+    <StageScreen
+      labelledBy="programming-title"
+      overlay={(scale) => (
+        <BlocklyOverlay
+          slotRef={blocklySlotRef}
+          scale={scale}
+          disabled={isSubmissionUnresolved}
+          onCommandsChange={handleCommandsChange}
+        />
+      )}
+    >
+      <StepIndicator current={2} />
+
+      <div className={styles.creatureCard}>
+        <p className={styles.cardTitle}>きみの なかま</p>
+        <div className={styles.creatureFrame}>
+          <img className={styles.creatureImage} src={imageData} alt="かいた え" />
+        </div>
       </div>
 
-      <div className={styles.workspace}>
-        <div className={styles.stage} aria-label="プログラミング対象の画像">
-          <img className={styles.targetImage} src={imageData} alt="プログラミング対象の作品" />
-        </div>
-        <div className={styles.editor}>
-          <p className={styles.counter} aria-live="polite">
-            つかったブロック {commands.length} / {MAX_COMMANDS}
-          </p>
-          <div className={styles.emptyProgramHint}>ブロックを置かなくても放流できます。</div>
-          <div className={styles.editorContainer} inert={isSubmissionUnresolved}>
-            <BlockWorkspace onCommandsChange={handleCommandsChange} />
+      <img className={styles.guideImage} src={inyaaGuide} alt="" />
+
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <h1 id="programming-title" className={styles.panelTitle}>
+            ブロックを ならべよう
+          </h1>
+          <div className={styles.counter} data-full={isFull} aria-live="polite">
+            <span className={styles.counterLabel}>
+              {isFull ? 'もう おけないよ' : 'つかった ブロック'}
+            </span>
+            <span className={styles.pips} aria-hidden="true">
+              {Array.from({ length: MAX_COMMANDS }, (_, index) => (
+                <span key={index} className={styles.pip} data-used={index < commands.length} />
+              ))}
+            </span>
+            <span className={styles.counterValue}>
+              {commands.length} / {MAX_COMMANDS}
+            </span>
           </div>
         </div>
+        {/* ここに Blockly を重ねる（BlocklyOverlay） */}
+        <div ref={blocklySlotRef} className={styles.blocklySlot} />
       </div>
-      {feedbackMessage !== null && (
-        <p
-          className={releaseState === 'error' ? styles.errorMessage : styles.statusMessage}
-          role={releaseState === 'error' ? 'alert' : 'status'}
-          aria-live={releaseState === 'error' ? 'assertive' : 'polite'}
+
+      {/* ふだんは「うみに はなす」ボタンだけで伝わるので、送信中・失敗のときだけ出す */}
+      {feedback.message !== null && (
+        <div
+          className={styles.message}
+          data-tone={feedback.tone}
+          role={feedback.tone === 'error' ? 'alert' : 'status'}
         >
-          {feedbackMessage}
-        </p>
+          {feedback.tone === 'sending' && (
+            <span className={styles.dots} aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          )}
+          {feedback.tone === 'error' && (
+            <span className={styles.errorMark} aria-hidden="true">
+              !
+            </span>
+          )}
+          <span className={styles.messageText}>
+            <span className={styles.messageMain}>{feedback.message}</span>
+            {feedback.detail !== null && (
+              <span className={styles.messageDetail}>{feedback.detail}</span>
+            )}
+          </span>
+        </div>
       )}
+
       <button
         type="button"
         className={styles.releaseButton}
         onClick={handleRelease}
-        disabled={releaseState === 'sending'}
+        disabled={feedback.buttonDisabled}
       >
-        {releaseState === 'sending'
-          ? '保存中…'
-          : releaseState === 'processing' || releaseState === 'unknown'
-            ? '送信状況を確認'
-            : releaseState === 'error'
-              ? 'もう一度放流'
-              : '放流する'}
+        {feedback.buttonLabel}
       </button>
-    </section>
+    </StageScreen>
   );
 }
