@@ -182,10 +182,11 @@ test('最初は必ず右へ泳ぎ出し、描いた向きのまま登場する',
   }
 });
 
-test('左へ進んでも絵を左右反転させない', () => {
+test('左へ進むと水流の向きが左になり、絵の角度は変わらない', () => {
   const visual = toVisual(motionAt({ vx: -60, facing: -1 }), []);
 
-  assert.equal('facing' in visual, false);
+  assert.equal(visual.facing, 'left');
+  assert.equal(visual.rotation, 0);
 });
 
 test('セリフコマンドではテキストを返す', () => {
@@ -223,7 +224,7 @@ test('上端でセリフを再生しても吹き出しの分の余白がある',
   assert.ok(visual.y >= bubbleHeight);
 });
 
-test('はやく およぐ：動いている間は、ふだんより速く進む', () => {
+test('はやく およぐ：動いている間は、ふだんより速く進み、水流が最大になる', () => {
   const dash: Command[] = [{ type: 'move', motion: 'dash' }];
   // 進み具合が真ん中（いちばん速いとき）の 1 フレーム
   const start = motionAt({ commandElapsed: 600 });
@@ -231,6 +232,7 @@ test('はやく およぐ：動いている間は、ふだんより速く進む'
   const dashing = stepMotion(start, dash, FRAME_MS, BOUNDS);
 
   assert.ok(dashing.x - start.x > (normal.x - start.x) * 2.5);
+  assert.equal(toVisual(start, dash).dashIntensity, 1);
 });
 
 test('はやく およぐ：休み時間は、ふだんの速さに戻る', () => {
@@ -241,6 +243,7 @@ test('はやく およぐ：休み時間は、ふだんの速さに戻る', () =
     stepMotion(start, dash, FRAME_MS, BOUNDS).x,
     stepMotion(start, [], FRAME_MS, BOUNDS).x,
   );
+  assert.equal(toVisual(start, dash).dashIntensity, 0);
 });
 
 test('ふくらむ：途中で大きくなり、終わると元の大きさに戻る', () => {

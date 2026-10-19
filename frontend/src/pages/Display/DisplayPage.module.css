@@ -29,7 +29,37 @@
   will-change: transform;
 }
 
+.creature::before {
+  position: absolute;
+  top: var(--trail-anchor-y, 50%);
+  z-index: 0;
+  width: 64px;
+  height: 72px;
+  border-radius: 50%;
+  background: url('../../assets/water-flow.svg') center / contain no-repeat;
+  content: '';
+  opacity: var(--dash-intensity, 0);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.creature[data-trail-ready='false']::before {
+  display: none;
+}
+
+.creature[data-facing='right']::before {
+  right: calc(100% - var(--trail-anchor-x, 40px) + 8px);
+  mask-image: linear-gradient(to right, transparent, #000 32%, #000 100%);
+}
+
+.creature[data-facing='left']::before {
+  left: calc(var(--trail-anchor-x, 180px) + 8px);
+  mask-image: linear-gradient(to right, #000 0%, #000 68%, transparent);
+}
+
 .image {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -38,6 +68,7 @@
 
 .bubble {
   position: absolute;
+  z-index: 2;
   bottom: 100%;
   max-width: 260px;
   margin: 0 0 8px;
