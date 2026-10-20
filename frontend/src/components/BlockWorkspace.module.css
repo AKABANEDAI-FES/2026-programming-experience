@@ -2,10 +2,3 @@
   width: 100%;
   height: 100%;
 }
-
-/* ブロックの一覧の見出し（「うごき」「セリフ」） */
-.workspace :global(.toolboxLabel) {
-  font-family: var(--font-rounded);
-  font-weight: 800;
-  fill: var(--ink);
-}

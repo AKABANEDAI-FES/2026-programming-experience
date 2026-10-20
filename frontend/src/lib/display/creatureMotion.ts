@@ -1,4 +1,4 @@
-import type { Command, Motion } from 'shared';
+import type { BasicCommand, Motion } from 'shared';
 
 export const CREATURE_WIDTH = 220;
 export const CREATURE_HEIGHT = 132;
@@ -86,14 +86,14 @@ const MOTION_DURATION_MS: Record<Motion, number> = {
 };
 
 /** コマンドの動きそのものにかかる時間 */
-const commandActionMs = (command: Command): number =>
+const commandActionMs = (command: BasicCommand): number =>
   command.type === 'say' ? SAY_DURATION_MS : MOTION_DURATION_MS[command.motion];
 
 /** 今やっている動き（休み時間なら null）と、その進み具合（0〜1） */
 const currentAction = (
   motion: Pick<CreatureMotion, 'commandIndex' | 'commandElapsed'>,
-  commands: Command[],
-): { command: Command; progress: number } | null => {
+  commands: BasicCommand[],
+): { command: BasicCommand; progress: number } | null => {
   if (commands.length === 0) {
     return null;
   }
@@ -112,7 +112,7 @@ const getDashIntensity = (action: ReturnType<typeof currentAction>): number =>
   currentMotion(action) === 'dash' && action !== null ? Math.sin(action.progress * Math.PI) : 0;
 
 /** 次のコマンドへ進むまでの時間（動き + 休み） */
-export const commandDurationMs = (command: Command): number =>
+export const commandDurationMs = (command: BasicCommand): number =>
   commandActionMs(command) + COMMAND_REST_MS;
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -160,7 +160,7 @@ export const createMotion = (
 
 export const stepMotion = (
   motion: CreatureMotion,
-  commands: Command[],
+  commands: BasicCommand[],
   deltaMs: number,
   bounds: Bounds,
   random: () => number = Math.random,
@@ -242,7 +242,7 @@ export const stepMotion = (
   };
 };
 
-export const toVisual = (motion: CreatureMotion, commands: Command[]): CreatureVisual => {
+export const toVisual = (motion: CreatureMotion, commands: BasicCommand[]): CreatureVisual => {
   const action = currentAction(motion, commands);
   const motionType = currentMotion(action);
   const progress = action?.progress ?? 0;

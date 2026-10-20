@@ -1,4 +1,13 @@
-import { MAX_COMMANDS, MAX_SAY_TEXT_LENGTH, MOTIONS, type ReleaseRequest } from 'shared/release';
+import {
+  countCommands,
+  MAX_COMMANDS,
+  MAX_REPEAT_TIMES,
+  MAX_SAY_TEXT_LENGTH,
+  MIN_REPEAT_TIMES,
+  MOTIONS,
+  type Command,
+  type ReleaseRequest,
+} from 'shared/release';
 
 const PNG_DATA_URL_PATTERN =
   /^data:image\/png;base64,(?=[A-Za-z0-9+/])(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
@@ -11,30 +20,70 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const allowedMotions = MOTIONS.map((motion) => `"${motion}"`).join(' または ');
 
-const validateCommand = (command: unknown, index: number): string | null => {
-  if (!isRecord(command)) {
-    return `commands[${index}] はオブジェクトで指定してください`;
-  }
-
+/** うごき・セリフを確認する。path はエラーメッセージに出す場所（例: commands[0].commands[1]） */
+const validateBasicCommand = (command: Record<string, unknown>, path: string): string | null => {
   if (command.type === 'move') {
     return MOTIONS.some((motion) => motion === command.motion)
       ? null
-      : `commands[${index}].motion は ${allowedMotions} を指定してください`;
+      : `${path}.motion は ${allowedMotions} を指定してください`;
   }
 
   if (command.type === 'say') {
     if (typeof command.text !== 'string') {
-      return `commands[${index}].text は文字列で指定してください`;
+      return `${path}.text は文字列で指定してください`;
     }
 
     if (Array.from(command.text).length > MAX_SAY_TEXT_LENGTH) {
-      return `commands[${index}].text は${MAX_SAY_TEXT_LENGTH}文字以下で指定してください`;
+      return `${path}.text は${MAX_SAY_TEXT_LENGTH}文字以下で指定してください`;
     }
 
     return null;
   }
 
-  return `commands[${index}].type は "move" または "say" を指定してください`;
+  return null;
+};
+
+const validateCommand = (command: unknown, path: string, insideRepeat: boolean): string | null => {
+  if (!isRecord(command)) {
+    return `${path} はオブジェクトで指定してください`;
+  }
+
+  if (command.type === 'move' || command.type === 'say') {
+    return validateBasicCommand(command, path);
+  }
+
+  if (command.type === 'repeat') {
+    if (insideRepeat) {
+      return `${path} くりかえしの中に、くりかえしは入れられません`;
+    }
+
+    if (
+      typeof command.times !== 'number' ||
+      !Number.isInteger(command.times) ||
+      command.times < MIN_REPEAT_TIMES ||
+      command.times > MAX_REPEAT_TIMES
+    ) {
+      return `${path}.times は${MIN_REPEAT_TIMES}〜${MAX_REPEAT_TIMES}の整数で指定してください`;
+    }
+
+    if (!Array.isArray(command.commands)) {
+      return `${path}.commands は配列で指定してください`;
+    }
+
+    for (const [index, inner] of command.commands.entries()) {
+      const errorMessage = validateCommand(inner, `${path}.commands[${index}]`, true);
+
+      if (errorMessage !== null) {
+        return errorMessage;
+      }
+    }
+
+    return null;
+  }
+
+  return insideRepeat
+    ? `${path}.type は "move" または "say" を指定してください`
+    : `${path}.type は "move"・"say"・"repeat" のいずれかを指定してください`;
 };
 
 export const validateReleaseRequest = (value: unknown): ReleaseRequestValidationResult => {
@@ -53,6 +102,7 @@ export const validateReleaseRequest = (value: unknown): ReleaseRequestValidation
     return { success: false, message: 'commands は配列で指定してください' };
   }
 
+  // 中身を確認する前に、上の段の数だけで明らかに多すぎるものは弾く
   if (value.commands.length > MAX_COMMANDS) {
     return {
       success: false,
@@ -61,11 +111,19 @@ export const validateReleaseRequest = (value: unknown): ReleaseRequestValidation
   }
 
   for (const [index, command] of value.commands.entries()) {
-    const errorMessage = validateCommand(command, index);
+    const errorMessage = validateCommand(command, `commands[${index}]`, false);
 
     if (errorMessage !== null) {
       return { success: false, message: errorMessage };
     }
+  }
+
+  // くりかえしの中のブロックも合わせて数える（画面の「つかった ブロック」と同じ数え方）
+  if (countCommands(value.commands as Command[]) > MAX_COMMANDS) {
+    return {
+      success: false,
+      message: `commands は、くりかえしの中も合わせて${MAX_COMMANDS}個以下で指定してください`,
+    };
   }
 
   return {

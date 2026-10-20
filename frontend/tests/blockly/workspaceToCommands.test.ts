@@ -74,3 +74,55 @@ test('上限を超えるセリフは上限の文字数で切る', () => {
     { type: 'say', text: 'あ'.repeat(MAX_SAY_TEXT_LENGTH) },
   ]);
 });
+
+const repeatBlock = (times: string, inner: unknown, rest: Record<string, unknown> = {}) => ({
+  type: 'repeat_command',
+  fields: { TIMES: times },
+  inputs: inner === undefined ? {} : { DO: { block: inner } },
+  ...rest,
+});
+
+test('くりかえしブロックを、中のブロックごと変換する', () => {
+  const json = workspace(
+    sayBlock('はじめ', {
+      next: { block: repeatBlock('3', moveBlock('jump', { next: { block: sayBlock('やあ') } })) },
+    }),
+  );
+
+  assert.deepEqual(workspaceToCommands(json), [
+    { type: 'say', text: 'はじめ' },
+    {
+      type: 'repeat',
+      times: 3,
+      commands: [
+        { type: 'move', motion: 'jump' },
+        { type: 'say', text: 'やあ' },
+      ],
+    },
+  ]);
+});
+
+test('中が空のくりかえしは、中身なしで変換する', () => {
+  assert.deepEqual(workspaceToCommands(workspace(repeatBlock('2', undefined))), [
+    { type: 'repeat', times: 2, commands: [] },
+  ]);
+});
+
+test('くりかえしの中のくりかえしと無効化されたブロックは、中身に含めない', () => {
+  const json = workspace(
+    repeatBlock(
+      '2',
+      repeatBlock('3', moveBlock('spin'), {
+        next: { block: moveBlock('jump', { disabledReasons: ['MANUALLY_DISABLED'] }) },
+      }),
+    ),
+  );
+
+  assert.deepEqual(workspaceToCommands(json), [{ type: 'repeat', times: 2, commands: [] }]);
+});
+
+test('回数が範囲外のくりかえしは、標準の回数にする', () => {
+  assert.deepEqual(workspaceToCommands(workspace(repeatBlock('9', moveBlock('jump')))), [
+    { type: 'repeat', times: 3, commands: [{ type: 'move', motion: 'jump' }] },
+  ]);
+});
