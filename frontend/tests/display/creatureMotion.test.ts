@@ -182,10 +182,11 @@ test('最初は必ず右へ泳ぎ出し、描いた向きのまま登場する',
   }
 });
 
-test('左へ進んでも絵を左右反転させない', () => {
+test('左へ進むと向きが左になり、絵の角度は変わらない', () => {
   const visual = toVisual(motionAt({ vx: -60, facing: -1 }), []);
 
-  assert.equal('facing' in visual, false);
+  assert.equal(visual.facing, 'left');
+  assert.equal(visual.rotation, 0);
 });
 
 test('セリフコマンドではテキストを返す', () => {
@@ -221,4 +222,56 @@ test('上端でセリフを再生しても吹き出しの分の余白がある',
   const visual = toVisual({ ...atTop, bobPhase: -Math.PI / 2 }, commands);
 
   assert.ok(visual.y >= bubbleHeight);
+});
+
+test('はやく およぐ：動いている間は、ふだんより速く進み、泡がいちばん多く出る', () => {
+  const dash: Command[] = [{ type: 'move', motion: 'dash' }];
+  // 進み具合が真ん中（いちばん速いとき）の 1 フレーム
+  const start = motionAt({ commandElapsed: 600 });
+  const normal = stepMotion(start, [], FRAME_MS, BOUNDS);
+  const dashing = stepMotion(start, dash, FRAME_MS, BOUNDS);
+
+  assert.ok(dashing.x - start.x > (normal.x - start.x) * 2.5);
+  assert.equal(toVisual(start, dash).dashIntensity, 1);
+});
+
+test('はやく およぐ：休み時間は、ふだんの速さに戻る', () => {
+  const dash: Command[] = [{ type: 'move', motion: 'dash' }];
+  const start = motionAt({ commandElapsed: 2000 });
+
+  assert.equal(
+    stepMotion(start, dash, FRAME_MS, BOUNDS).x,
+    stepMotion(start, [], FRAME_MS, BOUNDS).x,
+  );
+  assert.equal(toVisual(start, dash).dashIntensity, 0);
+});
+
+test('ふくらむ：途中で大きくなり、終わると元の大きさに戻る', () => {
+  const grow: Command[] = [{ type: 'move', motion: 'grow' }];
+
+  assert.ok(toVisual(motionAt({ commandElapsed: 750 }), grow).scale > 1.25);
+  assert.ok(Math.abs(toVisual(motionAt({ commandElapsed: 1499 }), grow).scale - 1) < 0.01);
+  assert.equal(toVisual(motionAt(), []).scale, 1);
+});
+
+test('ぶるぶる ふるえる：左右に小刻みに揺れる', () => {
+  const shake: Command[] = [{ type: 'move', motion: 'shake' }];
+  const base = toVisual(motionAt(), []).x;
+  const offsets = [42, 125].map((ms) => toVisual(motionAt({ commandElapsed: ms }), shake).x - base);
+
+  // 揺れの山と谷で、左右逆に動く
+  assert.ok(offsets[0] > 4);
+  assert.ok(offsets[1] < -4);
+});
+
+test('どの動きも、終わったあとは次のコマンドへ進む', () => {
+  for (const motion of ['dash', 'grow', 'shake'] as const) {
+    const commands: Command[] = [
+      { type: 'move', motion },
+      { type: 'say', text: 'つぎ' },
+    ];
+    const next = stepMotion(motionAt(), commands, 5000, BOUNDS);
+
+    assert.equal(next.commandIndex, 1);
+  }
 });

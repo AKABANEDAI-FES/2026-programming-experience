@@ -15,4 +15,7 @@ export const limitSayText = (text: string): string =>
 export const MOTION_OPTIONS: [label: string, motion: Motion][] = [
   ['ジャンプする', 'jump'],
   ['くるっとまわる', 'spin'],
+  ['はやく およぐ', 'dash'],
+  ['ふくらむ', 'grow'],
+  ['ぶるぶる ふるえる', 'shake'],
 ];

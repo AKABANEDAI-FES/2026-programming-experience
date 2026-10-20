@@ -1,7 +1,7 @@
 export type DrawMode = 'free' | 'coloring';
 
 /** 大画面で再生できる動きの種類 */
-export const MOTIONS = ['jump', 'spin'] as const;
+export const MOTIONS = ['jump', 'spin', 'dash', 'grow', 'shake'] as const;
 
 export type Motion = (typeof MOTIONS)[number];
 

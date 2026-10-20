@@ -1,4 +1,4 @@
-import type { Command } from 'shared';
+import type { Command, Motion } from 'shared';
 
 export const CREATURE_WIDTH = 220;
 export const CREATURE_HEIGHT = 132;
@@ -7,6 +7,17 @@ const JUMP_HEIGHT = 140;
 const JUMP_DURATION_MS = 1000;
 const SPIN_DURATION_MS = 2000;
 const SAY_DURATION_MS = 2500;
+/** はやく およぐ：泳ぐ速さを、なめらかに最大でこの倍率まで上げてから戻す */
+const DASH_DURATION_MS = 1200;
+const DASH_MAX_SPEED_RATE = 3;
+/** ふくらむ：この倍率まで大きくなってから戻る（大きいままにはしない） */
+const GROW_DURATION_MS = 1500;
+const GROW_MAX_SCALE = 1.3;
+/** ぶるぶる ふるえる：左右に小刻みに震える */
+const SHAKE_DURATION_MS = 1000;
+const SHAKE_TIMES = 6;
+const SHAKE_AMPLITUDE = 6;
+const SHAKE_TILT_DEG = 3;
 /** コマンドの後、次のコマンドまで普通に泳ぐ時間 */
 const COMMAND_REST_MS = 1500;
 
@@ -57,17 +68,48 @@ export type CreatureVisual = {
   x: number;
   y: number;
   rotation: number;
+  /** 絵の大きさの倍率（ふだんは 1） */
+  scale: number;
+  /** はやく およぐ の強さ（0〜1）。泡の出る量に使う */
+  dashIntensity: number;
+  /** 泡を出す向き（進んでいる向き） */
+  facing: 'left' | 'right';
   sayText: string | null;
 };
 
+const MOTION_DURATION_MS: Record<Motion, number> = {
+  jump: JUMP_DURATION_MS,
+  spin: SPIN_DURATION_MS,
+  dash: DASH_DURATION_MS,
+  grow: GROW_DURATION_MS,
+  shake: SHAKE_DURATION_MS,
+};
+
 /** コマンドの動きそのものにかかる時間 */
-const commandActionMs = (command: Command): number => {
-  if (command.type === 'say') {
-    return SAY_DURATION_MS;
+const commandActionMs = (command: Command): number =>
+  command.type === 'say' ? SAY_DURATION_MS : MOTION_DURATION_MS[command.motion];
+
+/** 今やっている動き（休み時間なら null）と、その進み具合（0〜1） */
+const currentAction = (
+  motion: Pick<CreatureMotion, 'commandIndex' | 'commandElapsed'>,
+  commands: Command[],
+): { command: Command; progress: number } | null => {
+  if (commands.length === 0) {
+    return null;
   }
 
-  return command.motion === 'spin' ? SPIN_DURATION_MS : JUMP_DURATION_MS;
+  const command = commands[motion.commandIndex % commands.length];
+  const progress = motion.commandElapsed / commandActionMs(command);
+
+  // 動き終わった後の休み時間は、普通に泳ぐだけにする
+  return progress < 1 ? { command, progress } : null;
 };
+
+const currentMotion = (action: ReturnType<typeof currentAction>): Motion | null =>
+  action !== null && action.command.type === 'move' ? action.command.motion : null;
+
+const getDashIntensity = (action: ReturnType<typeof currentAction>): number =>
+  currentMotion(action) === 'dash' && action !== null ? Math.sin(action.progress * Math.PI) : 0;
 
 /** 次のコマンドへ進むまでの時間（動き + 休み） */
 export const commandDurationMs = (command: Command): number =>
@@ -159,8 +201,13 @@ export const stepMotion = (
   vx += (targetVx - vx) * steer;
   vy += (targetVy - vy) * steer;
 
-  x = clamp(x + vx * seconds, 0, maxX);
-  y = clamp(y + vy * seconds, minY, maxY);
+  // はやく およぐ：進む向きはそのままで、進む速さだけをなめらかに上げ下げする
+  const action = currentAction(motion, commands);
+  const dashIntensity = getDashIntensity(action);
+  const speedRate = 1 + (DASH_MAX_SPEED_RATE - 1) * dashIntensity;
+
+  x = clamp(x + vx * speedRate * seconds, 0, maxX);
+  y = clamp(y + vy * speedRate * seconds, minY, maxY);
 
   const targetFacing = vx < 0 ? -1 : 1;
 
@@ -196,15 +243,16 @@ export const stepMotion = (
 };
 
 export const toVisual = (motion: CreatureMotion, commands: Command[]): CreatureVisual => {
-  const command = commands.length > 0 ? commands[motion.commandIndex % commands.length] : undefined;
-  const progress = command === undefined ? 0 : motion.commandElapsed / commandActionMs(command);
-  // 動き終わった後の休み時間は、普通に泳ぐだけにする
-  const isActing = command !== undefined && progress < 1;
-  const motionType = isActing && command.type === 'move' ? command.motion : null;
+  const action = currentAction(motion, commands);
+  const motionType = currentMotion(action);
+  const progress = action?.progress ?? 0;
+  // 0 → 1 → 0 と山なりに変わる値（ジャンプの高さや大きくなる量に使う）
+  const swell = Math.sin(easeInOut(progress) * Math.PI);
 
-  const jumpOffset =
-    motionType === 'jump' ? Math.sin(easeInOut(progress) * Math.PI) * JUMP_HEIGHT : 0;
+  const jumpOffset = motionType === 'jump' ? swell * JUMP_HEIGHT : 0;
   const spinAngle = motionType === 'spin' ? easeInOut(progress) * 360 : 0;
+  const scale = motionType === 'grow' ? 1 + (GROW_MAX_SCALE - 1) * swell : 1;
+  const shakeWave = motionType === 'shake' ? Math.sin(progress * SHAKE_TIMES * 2 * Math.PI) : 0;
 
   // 上下に進むときは、進んでいる側を少し上げ下げする。
   // 描いた文字が鏡文字にならないよう絵は左右反転させず、左へ進むときは傾きの向きだけを逆にする
@@ -212,9 +260,12 @@ export const toVisual = (motion: CreatureMotion, commands: Command[]): CreatureV
   const tilt = clamp(heading, -MAX_TILT_DEG, MAX_TILT_DEG) * motion.facing;
 
   return {
-    x: motion.x,
+    x: motion.x + shakeWave * SHAKE_AMPLITUDE,
     y: motion.y + Math.sin(motion.bobPhase) * BOB_AMPLITUDE - jumpOffset,
-    rotation: tilt + spinAngle,
-    sayText: isActing && command.type === 'say' ? command.text : null,
+    rotation: tilt + spinAngle + shakeWave * SHAKE_TILT_DEG,
+    scale,
+    dashIntensity: getDashIntensity(action),
+    facing: motion.facing < 0 ? 'left' : 'right',
+    sayText: action !== null && action.command.type === 'say' ? action.command.text : null,
   };
 };

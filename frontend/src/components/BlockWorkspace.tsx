@@ -14,8 +14,8 @@ Blockly.setLocale(ja as unknown as Record<string, string>);
 defineCommandBlocks();
 removeUnusedContextMenuItems();
 
-/** 1920×1080 の舞台のときのブロックの大きさ */
-const BASE_BLOCK_SCALE = 1.8;
+/** 1920×1080 の舞台のときのブロックの大きさ（ブロックの一覧がスクロールせずに収まる大きさ） */
+const BASE_BLOCK_SCALE = 1.45;
 
 type BlockWorkspaceProps = {
   onCommandsChange?: (commands: Command[]) => void;
