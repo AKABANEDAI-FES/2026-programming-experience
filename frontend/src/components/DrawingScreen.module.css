@@ -131,6 +131,18 @@
   cursor: pointer;
 }
 
+.toolButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.toolButton > svg {
+  width: 1em;
+  height: 1em;
+  flex: none;
+}
+
 .toolButton[aria-pressed='true'] {
   border-color: #176451;
   background: #dfece8;
