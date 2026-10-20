@@ -12,12 +12,12 @@ const DASH_DURATION_MS = 1200;
 const DASH_MAX_SPEED_RATE = 3;
 /** ふくらむ：この倍率まで大きくなってから戻る（大きいままにはしない） */
 const GROW_DURATION_MS = 1500;
-const GROW_MAX_SCALE = 1.6;
+const GROW_MAX_SCALE = 1.3;
 /** ぶるぶる ふるえる：左右に小刻みに震える */
 const SHAKE_DURATION_MS = 1000;
-const SHAKE_TIMES = 10;
-const SHAKE_AMPLITUDE = 12;
-const SHAKE_TILT_DEG = 6;
+const SHAKE_TIMES = 6;
+const SHAKE_AMPLITUDE = 6;
+const SHAKE_TILT_DEG = 3;
 /** コマンドの後、次のコマンドまで普通に泳ぐ時間 */
 const COMMAND_REST_MS = 1500;
 
@@ -70,6 +70,10 @@ export type CreatureVisual = {
   rotation: number;
   /** 絵の大きさの倍率（ふだんは 1） */
   scale: number;
+  /** はやく およぐ の強さ（0〜1）。泡の出る量に使う */
+  dashIntensity: number;
+  /** 泡を出す向き（進んでいる向き） */
+  facing: 'left' | 'right';
   sayText: string | null;
 };
 
@@ -103,6 +107,9 @@ const currentAction = (
 
 const currentMotion = (action: ReturnType<typeof currentAction>): Motion | null =>
   action !== null && action.command.type === 'move' ? action.command.motion : null;
+
+const getDashIntensity = (action: ReturnType<typeof currentAction>): number =>
+  currentMotion(action) === 'dash' && action !== null ? Math.sin(action.progress * Math.PI) : 0;
 
 /** 次のコマンドへ進むまでの時間（動き + 休み） */
 export const commandDurationMs = (command: BasicCommand): number =>
@@ -196,10 +203,8 @@ export const stepMotion = (
 
   // はやく およぐ：進む向きはそのままで、進む速さだけをなめらかに上げ下げする
   const action = currentAction(motion, commands);
-  const speedRate =
-    currentMotion(action) === 'dash' && action !== null
-      ? 1 + (DASH_MAX_SPEED_RATE - 1) * Math.sin(action.progress * Math.PI)
-      : 1;
+  const dashIntensity = getDashIntensity(action);
+  const speedRate = 1 + (DASH_MAX_SPEED_RATE - 1) * dashIntensity;
 
   x = clamp(x + vx * speedRate * seconds, 0, maxX);
   y = clamp(y + vy * speedRate * seconds, minY, maxY);
@@ -259,6 +264,8 @@ export const toVisual = (motion: CreatureMotion, commands: BasicCommand[]): Crea
     y: motion.y + Math.sin(motion.bobPhase) * BOB_AMPLITUDE - jumpOffset,
     rotation: tilt + spinAngle + shakeWave * SHAKE_TILT_DEG,
     scale,
+    dashIntensity: getDashIntensity(action),
+    facing: motion.facing < 0 ? 'left' : 'right',
     sayText: action !== null && action.command.type === 'say' ? action.command.text : null,
   };
 };

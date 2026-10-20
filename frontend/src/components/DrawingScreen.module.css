@@ -58,6 +58,40 @@
   box-shadow: 0 2px 6px rgb(20 32 29 / 12%);
 }
 
+.templateSwitcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.templateButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 4px 16px 4px 4px;
+  border: 2px solid #c7d8d2;
+  border-radius: 12px;
+  background: #fff;
+  color: #39504a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.templateButton[aria-pressed='true'] {
+  border-color: #176451;
+  color: #176451;
+  box-shadow: 0 2px 6px rgb(20 32 29 / 12%);
+}
+
+.templateThumbnail {
+  width: 80px;
+  height: 48px;
+  border-radius: 8px;
+  background: #fff;
+  object-fit: contain;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -144,6 +178,7 @@
 }
 
 .modeButton:focus-visible,
+.templateButton:focus-visible,
 .toolbar button:focus-visible,
 .lineWidthLabel select:focus-visible {
   outline: 3px solid #176451;
