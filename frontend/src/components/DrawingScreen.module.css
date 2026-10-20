@@ -125,6 +125,13 @@
   border-right: 1px solid #c7d8d2;
 }
 
+.savedColorGroup {
+  padding: 6px 10px;
+  border: 1px solid #96baae;
+  border-radius: 10px;
+  background: #edf6f2;
+}
+
 .paletteLabel,
 .customColorLabel span {
   color: #52635f;

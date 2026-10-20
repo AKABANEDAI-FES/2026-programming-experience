@@ -16,6 +16,7 @@ import { DRAW_MODES, DRAW_MODE_COPY } from '../constants/drawModes';
 import { applyFillToEditingLayer } from '../lib/paint/applyFillToEditingLayer';
 import { clearOuterBackground } from '../lib/paint/clearOuterBackground';
 import { createChangedPixelMask } from '../lib/paint/createChangedPixelMask';
+import { MAX_CUSTOM_COLORS, rememberCustomColor } from '../lib/paint/customColorHistory';
 import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
 import styles from './DrawingScreen.module.css';
@@ -86,6 +87,9 @@ const COLOR_GROUPS = [
 ] as const;
 
 const DEFAULT_COLOR = '#1f2937';
+const PRESET_COLORS = new Set<string>(
+  COLOR_GROUPS.flatMap((group) => group.colors.map(({ value }) => value)),
+);
 const NEAR_WHITE_MESSAGE = '白に近い色は大画面で消えることがあるので、別の色を選んでね。';
 
 const LINE_WIDTHS = [4, 8, 16, 24] as const;
@@ -120,7 +124,8 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const [tool, setTool] = useState<Tool>('pen');
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [customColor, setCustomColor] = useState<string>(DEFAULT_COLOR);
-  const [colorSource, setColorSource] = useState<'preset' | 'custom'>('preset');
+  const [savedColors, setSavedColors] = useState<string[]>([]);
+  const [colorSource, setColorSource] = useState<'preset' | 'custom' | 'saved'>('preset');
   const [colorNotice, setColorNotice] = useState<string | null>(null);
   const [lineWidth, setLineWidth] = useState<number>(LINE_WIDTHS[1]);
   const [canUndo, setCanUndo] = useState(false);
@@ -675,6 +680,34 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
               </div>
             </div>
           ))}
+          {savedColors.length > 0 && (
+            <div
+              className={`${styles.paletteGroup} ${styles.savedColorGroup}`}
+              role="group"
+              aria-label="つくった色"
+            >
+              <span className={styles.paletteLabel}>つくった色（{MAX_CUSTOM_COLORS}色まで）</span>
+              <div className={styles.colorOptions}>
+                {savedColors.map((savedColor, index) => (
+                  <button
+                    key={savedColor}
+                    type="button"
+                    className={styles.colorButton}
+                    style={{ '--color-swatch': savedColor } as CSSProperties}
+                    aria-label={`つくった色${index + 1}を選ぶ`}
+                    aria-pressed={colorSource === 'saved' && color === savedColor}
+                    title={savedColor}
+                    onClick={() => {
+                      setCustomColor(savedColor);
+                      setColor(savedColor);
+                      setColorSource('saved');
+                      setColorNotice(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           <label className={styles.customColorLabel} data-active={colorSource === 'custom'}>
             <span>じぶんでえらぶ</span>
             <input
@@ -690,7 +723,8 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
                 }
                 setCustomColor(nextColor);
                 setColor(nextColor);
-                setColorSource('custom');
+                setColorSource(PRESET_COLORS.has(nextColor) ? 'preset' : 'custom');
+                setSavedColors((colors) => rememberCustomColor(colors, nextColor, PRESET_COLORS));
                 setColorNotice(null);
               }}
             />
