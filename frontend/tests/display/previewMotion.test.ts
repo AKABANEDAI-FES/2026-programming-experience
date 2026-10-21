@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { BasicCommand as Command } from 'shared';
 import {
   createPreviewMotion,
+  isSameCommands,
   stepPreviewMotion,
   toPreviewVisual,
 } from '../../src/lib/display/previewMotion.ts';
@@ -57,4 +58,17 @@ test('はやく およぐ と ふくらむ も、その場で見てわかる動�
 
   assert.ok(toPreviewVisual(runFor(600, dash), dash).offsetX > 20);
   assert.ok(toPreviewVisual(runFor(750, grow), grow).scale > 1.2);
+});
+
+test('並び・動き・セリフが同じときだけ、同じコマンドとみなす', () => {
+  const commands: Command[] = [
+    { type: 'say', text: 'やあ' },
+    { type: 'move', motion: 'jump' },
+  ];
+
+  // クリックなどで新しい配列が届いても、中身が同じなら同じとみなす
+  assert.equal(isSameCommands(commands, structuredClone(commands)), true);
+  assert.equal(isSameCommands(commands, [...commands].reverse()), false);
+  assert.equal(isSameCommands(commands, [{ type: 'say', text: 'やっほー' }, commands[1]]), false);
+  assert.equal(isSameCommands(commands, commands.slice(0, 1)), false);
 });

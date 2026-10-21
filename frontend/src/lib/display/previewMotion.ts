@@ -37,6 +37,10 @@ export const createPreviewMotion = (): CreatureMotion => ({
   leaveDirection: 0,
 });
 
+/** 並び・動き・セリフがすべて同じか。同じなら、プレビューを最初からやり直さない */
+export const isSameCommands = (a: readonly BasicCommand[], b: readonly BasicCommand[]): boolean =>
+  JSON.stringify(a) === JSON.stringify(b);
+
 /** コマンドの進み具合とふわふわだけを進め、位置と泳ぐ向きはそのままにする */
 export const stepPreviewMotion = (
   motion: CreatureMotion,

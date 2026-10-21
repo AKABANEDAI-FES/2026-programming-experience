@@ -4,6 +4,7 @@ import { countCommands, expandCommands } from 'shared/release';
 import inyaaGuide from '../assets/inyaa-guide.png';
 import {
   createPreviewMotion,
+  isSameCommands,
   stepPreviewMotion,
   toPreviewVisual,
 } from '../lib/display/previewMotion';
@@ -88,7 +89,14 @@ function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
   const motionRef = useRef(createPreviewMotion());
 
   useEffect(() => {
-    commandsRef.current = expandCommands(commands);
+    const nextCommands = expandCommands(commands);
+
+    // ワークスペースをクリックしただけなど、中身が変わっていなければ再生を続ける
+    if (isSameCommands(nextCommands, commandsRef.current)) {
+      return;
+    }
+
+    commandsRef.current = nextCommands;
     motionRef.current = createPreviewMotion();
   }, [commands]);
 
