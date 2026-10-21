@@ -79,7 +79,9 @@ export function DisplayPage() {
     }
 
     if (removed.length > 0) {
-      setLeaving((current) => [...current, ...removed]);
+      const removedIds = new Set(removed.map(({ id }) => id));
+      // 出ていく途中に戻ってきて、また取り除かれた作品が二重に入らないよう、同じ作品は入れ替える
+      setLeaving((current) => [...current.filter(({ id }) => !removedIds.has(id)), ...removed]);
     }
 
     for (const creature of result.creatures) {
