@@ -3,10 +3,7 @@ import type { DrawMode } from 'shared';
 import { DrawingScreen } from './components/DrawingScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { ProgrammingScreen } from './components/ProgrammingScreen';
-import {
-  preventKioskShortcuts,
-  preventRightClickMenu,
-} from './lib/ui/participantSafety.ts';
+import { preventKioskShortcuts, preventRightClickMenu } from './lib/ui/participantSafety.ts';
 import styles from './App.module.css';
 
 type AppStep = 'home' | 'drawing' | 'programming' | 'complete';
