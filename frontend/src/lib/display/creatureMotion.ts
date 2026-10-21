@@ -20,6 +20,14 @@ const SHAKE_AMPLITUDE = 6;
 const SHAKE_TILT_DEG = 3;
 /** コマンドの後、次のコマンドまで普通に泳ぐ時間 */
 const COMMAND_REST_MS = 1500;
+/** 登場：水面（画面の上の外）から、泳ぐ高さまで沈んでくる時間 */
+export const ENTER_DURATION_MS = 2500;
+/** 登場：沈み始める位置を、画面の上端からどれだけ上にするか */
+const ENTER_START_ABOVE = 40;
+/** 退場：近いほうの左右の端へ、この速さ（px/秒）まで上げて画面の外へ泳いでいく */
+const LEAVE_SPEED = 320;
+/** 退場：泳いでいくときの後ろの泡の量（はやく およぐ の強さと同じ 0〜1） */
+const LEAVE_BUBBLE_INTENSITY = 0.6;
 
 const MIN_SPEED = 40;
 const MAX_SPEED = 80;
@@ -62,6 +70,12 @@ export type CreatureMotion = {
   bobPhase: number;
   commandIndex: number;
   commandElapsed: number;
+  /** 登場して沈んでくる残り時間（ミリ秒）。0 なら登場は終わっている */
+  enterRemaining: number;
+  /** 登場で沈み始める高さ（画面の上の外） */
+  enterFromY: number;
+  /** 退場して泳いでいく向き。0 ならまだ退場していない */
+  leaveDirection: -1 | 0 | 1;
 };
 
 export type CreatureVisual = {
@@ -74,6 +88,8 @@ export type CreatureVisual = {
   dashIntensity: number;
   /** 泡を出す向き（進んでいる向き） */
   facing: 'left' | 'right';
+  /** 登場して沈んできている途中か（泡を出すのに使う） */
+  entering: boolean;
   sayText: string | null;
 };
 
@@ -121,6 +137,9 @@ const clamp = (value: number, min: number, max: number): number =>
 /** 始めと終わりをゆっくりにする */
 const easeInOut = (progress: number): number => (1 - Math.cos(progress * Math.PI)) / 2;
 
+/** 終わりだけをゆっくりにする（勢いよく沈んできて、ふわっと止まる） */
+const easeOut = (progress: number): number => 1 - (1 - progress) ** 3;
+
 const randomBetween = (min: number, max: number, random: () => number): number =>
   min + random() * (max - min);
 
@@ -133,9 +152,14 @@ const verticalRange = (bounds: Bounds): { minY: number; maxY: number } => {
   return { minY: Math.min(TOP_MARGIN, maxY), maxY };
 };
 
+/**
+ * 新しい作品の動きを作る。entering が true なら、水面（画面の上）から沈んできて登場する。
+ * 大画面を開き直したときに戻ってきた作品は、最初から泳いでいるように entering を false にする。
+ */
 export const createMotion = (
   bounds: Bounds,
   random: () => number = Math.random,
+  { entering = false }: { entering?: boolean } = {},
 ): CreatureMotion => {
   // 描いたままの向きで登場させたいので、最初は必ず右へ泳ぎ出す
   const direction = 1;
@@ -155,8 +179,29 @@ export const createMotion = (
     bobPhase: random() * Math.PI * 2,
     commandIndex: 0,
     commandElapsed: 0,
+    enterRemaining: entering ? ENTER_DURATION_MS : 0,
+    enterFromY: -CREATURE_HEIGHT - ENTER_START_ABOVE,
+    leaveDirection: 0,
   };
 };
+
+/** 退場を始める。画面の真ん中より左にいれば左へ、右にいれば右へ、画面の外まで泳いでいく */
+export const startLeaving = (motion: CreatureMotion, bounds: Bounds): CreatureMotion => {
+  const leaveDirection = motion.x + CREATURE_WIDTH / 2 < bounds.width / 2 ? -1 : 1;
+
+  return {
+    ...motion,
+    enterRemaining: 0,
+    leaveDirection,
+    targetVx: leaveDirection * LEAVE_SPEED,
+    targetVy: 0,
+  };
+};
+
+/** 退場して、絵が画面の外まで出きったか（傾きやふわふわの分も見込んで、少し余分に出す） */
+export const hasLeftScreen = (motion: CreatureMotion, bounds: Bounds): boolean =>
+  (motion.leaveDirection < 0 && motion.x < -CREATURE_WIDTH - EDGE_MARGIN / 2) ||
+  (motion.leaveDirection > 0 && motion.x > bounds.width + EDGE_MARGIN / 2);
 
 export const stepMotion = (
   motion: CreatureMotion,
@@ -171,43 +216,54 @@ export const stepMotion = (
 
   let { x, y, vx, vy, targetVx, targetVy, wanderRemaining, facing, bobPhase } = motion;
   let { commandIndex, commandElapsed } = motion;
+  // 登場して沈んでくる間は、泳ぐ高さ（y）を決めたままにし、コマンドもまだ始めない
+  const entering = motion.enterRemaining > 0;
+  const enterRemaining = Math.max(0, motion.enterRemaining - deltaMs);
+  // 退場している間は、向きを決め直したり端で引き返したりせず、画面の外までまっすぐ泳ぐ
+  const leaving = motion.leaveDirection !== 0;
 
-  // ときどき泳ぐ向きと速さを決め直して、ゆるく蛇行させる
-  wanderRemaining -= deltaMs;
+  if (!leaving) {
+    // ときどき泳ぐ向きと速さを決め直して、ゆるく蛇行させる
+    wanderRemaining -= deltaMs;
 
-  if (wanderRemaining <= 0) {
-    const direction = random() < TURN_CHANCE ? -Math.sign(targetVx) : Math.sign(targetVx);
+    if (wanderRemaining <= 0) {
+      const direction = random() < TURN_CHANCE ? -Math.sign(targetVx) : Math.sign(targetVx);
 
-    targetVx = (direction || 1) * randomBetween(MIN_SPEED, MAX_SPEED, random);
-    targetVy = randomVerticalSpeed(random);
-    wanderRemaining = randomBetween(MIN_WANDER_MS, MAX_WANDER_MS, random);
+      targetVx = (direction || 1) * randomBetween(MIN_SPEED, MAX_SPEED, random);
+      targetVy = randomVerticalSpeed(random);
+      wanderRemaining = randomBetween(MIN_WANDER_MS, MAX_WANDER_MS, random);
+    }
+
+    // 端に近づいたら、ぶつかる前に内側へ向きを変える
+    if (x < EDGE_MARGIN) {
+      targetVx = Math.abs(targetVx);
+    } else if (x > maxX - EDGE_MARGIN) {
+      targetVx = -Math.abs(targetVx);
+    }
+
+    if (y < minY + EDGE_MARGIN) {
+      targetVy = Math.abs(targetVy);
+    } else if (y > maxY - EDGE_MARGIN) {
+      targetVy = -Math.abs(targetVy);
+    }
   }
 
-  // 端に近づいたら、ぶつかる前に内側へ向きを変える
-  if (x < EDGE_MARGIN) {
-    targetVx = Math.abs(targetVx);
-  } else if (x > maxX - EDGE_MARGIN) {
-    targetVx = -Math.abs(targetVx);
-  }
-
-  if (y < minY + EDGE_MARGIN) {
-    targetVy = Math.abs(targetVy);
-  } else if (y > maxY - EDGE_MARGIN) {
-    targetVy = -Math.abs(targetVy);
-  }
-
-  const steer = Math.min(1, seconds * STEER_RATE);
+  // 退場するときは、ぐっと速度を上げて泳ぎ去る
+  const steer = Math.min(1, seconds * STEER_RATE * (leaving ? 2 : 1));
 
   vx += (targetVx - vx) * steer;
   vy += (targetVy - vy) * steer;
 
   // はやく およぐ：進む向きはそのままで、進む速さだけをなめらかに上げ下げする
-  const action = currentAction(motion, commands);
+  const action = entering || leaving ? null : currentAction(motion, commands);
   const dashIntensity = getDashIntensity(action);
   const speedRate = 1 + (DASH_MAX_SPEED_RATE - 1) * dashIntensity;
 
-  x = clamp(x + vx * speedRate * seconds, 0, maxX);
-  y = clamp(y + vy * speedRate * seconds, minY, maxY);
+  x = leaving ? x + vx * seconds : clamp(x + vx * speedRate * seconds, 0, maxX);
+
+  if (!entering) {
+    y = clamp(y + vy * speedRate * seconds, minY, maxY);
+  }
 
   const targetFacing = vx < 0 ? -1 : 1;
 
@@ -217,7 +273,7 @@ export const stepMotion = (
   if (commands.length === 0) {
     commandIndex = 0;
     commandElapsed = 0;
-  } else {
+  } else if (!entering && !leaving) {
     commandIndex %= commands.length;
     commandElapsed += deltaMs;
 
@@ -239,11 +295,16 @@ export const stepMotion = (
     bobPhase,
     commandIndex,
     commandElapsed,
+    enterRemaining,
+    enterFromY: motion.enterFromY,
+    leaveDirection: motion.leaveDirection,
   };
 };
 
 export const toVisual = (motion: CreatureMotion, commands: BasicCommand[]): CreatureVisual => {
-  const action = currentAction(motion, commands);
+  const entering = motion.enterRemaining > 0;
+  const leaving = motion.leaveDirection !== 0;
+  const action = entering || leaving ? null : currentAction(motion, commands);
   const motionType = currentMotion(action);
   const progress = action?.progress ?? 0;
   // 0 → 1 → 0 と山なりに変わる値（ジャンプの高さや大きくなる量に使う）
@@ -259,13 +320,21 @@ export const toVisual = (motion: CreatureMotion, commands: BasicCommand[]): Crea
   const heading = (Math.atan2(motion.vy, Math.abs(motion.vx)) * 180) / Math.PI;
   const tilt = clamp(heading, -MAX_TILT_DEG, MAX_TILT_DEG) * motion.facing;
 
+  // 登場中は、水面（画面の上の外）から泳ぐ高さまで沈んでくる
+  const enterProgress = 1 - motion.enterRemaining / ENTER_DURATION_MS;
+  const baseY = entering
+    ? motion.enterFromY + (motion.y - motion.enterFromY) * easeOut(enterProgress)
+    : motion.y;
+
   return {
     x: motion.x + shakeWave * SHAKE_AMPLITUDE,
-    y: motion.y + Math.sin(motion.bobPhase) * BOB_AMPLITUDE - jumpOffset,
+    y: baseY + Math.sin(motion.bobPhase) * BOB_AMPLITUDE - jumpOffset,
     rotation: tilt + spinAngle + shakeWave * SHAKE_TILT_DEG,
     scale,
-    dashIntensity: getDashIntensity(action),
+    // 退場して泳いでいく間も、後ろに泡を出す
+    dashIntensity: leaving ? LEAVE_BUBBLE_INTENSITY : getDashIntensity(action),
     facing: motion.facing < 0 ? 'left' : 'right',
+    entering,
     sayText: action !== null && action.command.type === 'say' ? action.command.text : null,
   };
 };

@@ -10,6 +10,8 @@ import {
   CREATURE_HEIGHT,
   CREATURE_WIDTH,
   createMotion,
+  hasLeftScreen,
+  startLeaving,
   stepMotion,
   toVisual,
   type CreatureMotion,
@@ -29,6 +31,10 @@ const BUBBLE_MIN_INTENSITY = 0.25;
 /** 泡を出す間隔。いちばん速いときほど短くして、たくさん出す */
 const BUBBLE_SLOWEST_INTERVAL_MS = 110;
 const BUBBLE_FASTEST_INTERVAL_MS = 50;
+/** 登場して沈んでくる間に、泡を出す間隔 */
+const ENTER_BUBBLE_INTERVAL_MS = 70;
+
+const randomBetween = (min: number, max: number) => min + Math.random() * (max - min);
 
 type CreatureNode = {
   root: HTMLDivElement;
@@ -42,6 +48,8 @@ const toImageUrl = (imageUrl: string): string =>
 
 export function DisplayPage() {
   const [creatures, setCreatures] = useState<Creature[]>([]);
+  // 上限を超えて取り除く作品。画面の外へ泳いで出ていくまで、少しの間だけ残しておく
+  const [leaving, setLeaving] = useState<Creature[]>([]);
   // setState の更新関数は StrictMode で2回呼ばれるため、副作用を伴う追加処理は ref の値をもとに行う
   const creaturesRef = useRef<Creature[]>([]);
   const motions = useRef(new Map<string, CreatureMotion>());
@@ -51,21 +59,35 @@ export function DisplayPage() {
   const visibleBoundsCache = useRef(new Map<string, VisibleArtworkBounds | null>());
   const bubbleLayerRef = useRef<HTMLDivElement>(null);
 
-  const updateCreatures = useCallback((result: AddCreatureResult<Creature>) => {
+  /** entering が true なら、新しく届いた作品として水面から登場させる */
+  const updateCreatures = useCallback((result: AddCreatureResult<Creature>, entering: boolean) => {
     if (result.creatures === creaturesRef.current) {
       return;
     }
 
-    for (const { id } of result.removed) {
-      motions.current.delete(id);
-      commands.current.delete(id);
-    }
-
     const bounds = { width: window.innerWidth, height: window.innerHeight };
 
+    // 取り除く作品は、すぐには消さずに画面の外へ泳いでいかせる（出きったら毎フレームの処理で消す）
+    const removed = result.removed.filter(({ id }) => motions.current.has(id));
+
+    for (const { id } of removed) {
+      const motion = motions.current.get(id);
+
+      if (motion !== undefined) {
+        motions.current.set(id, startLeaving(motion, bounds));
+      }
+    }
+
+    if (removed.length > 0) {
+      const removedIds = new Set(removed.map(({ id }) => id));
+      // 出ていく途中に戻ってきて、また取り除かれた作品が二重に入らないよう、同じ作品は入れ替える
+      setLeaving((current) => [...current.filter(({ id }) => !removedIds.has(id)), ...removed]);
+    }
+
     for (const creature of result.creatures) {
-      if (!motions.current.has(creature.id)) {
-        motions.current.set(creature.id, createMotion(bounds));
+      // 出ていく途中に再接続で戻ってきた作品は、泳ぎ直させる
+      if (!motions.current.has(creature.id) || motions.current.get(creature.id)?.leaveDirection) {
+        motions.current.set(creature.id, createMotion(bounds, Math.random, { entering }));
         commands.current.set(creature.id, expandCommands(creature.commands));
       }
     }
@@ -76,13 +98,14 @@ export function DisplayPage() {
 
   const handleCreature = useCallback(
     (creature: Creature) =>
-      updateCreatures(addCreature(creaturesRef.current, creature, MAX_CREATURES)),
+      updateCreatures(addCreature(creaturesRef.current, creature, MAX_CREATURES), true),
     [updateCreatures],
   );
 
   const handleRestore = useCallback(
     (restored: Creature[]) =>
-      updateCreatures(restoreCreatures(creaturesRef.current, restored, MAX_CREATURES)),
+      // 開き直しや再接続で戻ってきた作品は、全員が一斉に沈んでこないよう登場させない
+      updateCreatures(restoreCreatures(creaturesRef.current, restored, MAX_CREATURES), false),
     [updateCreatures],
   );
 
@@ -153,6 +176,7 @@ export function DisplayPage() {
       previous = now;
 
       const bounds = { width: window.innerWidth, height: window.innerHeight };
+      const leftIds = new Set<string>();
 
       for (const [id, node] of nodes.current) {
         const motion = motions.current.get(id);
@@ -164,6 +188,15 @@ export function DisplayPage() {
         const creatureCommands = commands.current.get(id) ?? [];
         const nextMotion = stepMotion(motion, creatureCommands, delta, bounds);
         const visual = toVisual(nextMotion, creatureCommands);
+
+        // 退場して画面の外へ出きったら、動きとコマンドを捨てて、描くのもやめる
+        if (hasLeftScreen(nextMotion, bounds)) {
+          motions.current.delete(id);
+          commands.current.delete(id);
+          lastBubbleAt.delete(id);
+          leftIds.add(id);
+          continue;
+        }
 
         motions.current.set(id, nextMotion);
         node.root.style.transform = `translate3d(${visual.x}px, ${visual.y}px, 0)`;
@@ -188,7 +221,7 @@ export function DisplayPage() {
               visual.scale,
             );
 
-            bubblePool.spawn(
+            bubblePool.trail(
               visual.x + trailAnchor.x,
               visual.y + trailAnchor.y,
               visual.facing === 'right' ? -1 : 1,
@@ -196,9 +229,26 @@ export function DisplayPage() {
             lastBubbleAt.set(id, now);
           }
         }
+        // 登場：沈んでくる間、作品のまわりから泡を上げる（水に入ったときの泡）
+        if (
+          bubblePool !== null &&
+          visual.entering &&
+          now - (lastBubbleAt.get(id) ?? 0) >= ENTER_BUBBLE_INTERVAL_MS
+        ) {
+          bubblePool.rise(
+            visual.x + CREATURE_WIDTH / 2 + randomBetween(-90, 90),
+            visual.y + CREATURE_HEIGHT * randomBetween(0.2, 0.7),
+          );
+          lastBubbleAt.set(id, now);
+        }
+
         node.image.style.transform = `rotate(${visual.rotation}deg) scale(${visual.scale})`;
         node.bubble.hidden = visual.sayText === null;
         node.bubble.textContent = visual.sayText;
+      }
+
+      if (leftIds.size > 0) {
+        setLeaving((current) => current.filter(({ id }) => !leftIds.has(id)));
       }
 
       frame = requestAnimationFrame(tick);
@@ -211,6 +261,10 @@ export function DisplayPage() {
       bubblePool?.dispose();
     };
   }, []);
+
+  // 出ていく途中に再接続で同じ作品が戻ってきたら、戻ってきたほうだけを描く
+  const creatureIds = new Set(creatures.map(({ id }) => id));
+  const leavingOnly = leaving.filter(({ id }) => !creatureIds.has(id));
 
   return (
     <main className={styles.page} aria-label="大画面モニター">
@@ -225,7 +279,8 @@ export function DisplayPage() {
         aria-hidden="true"
       />
 
-      {creatures.map((creature) => (
+      {/* 出ていく作品も同じ並びで描き、届いている作品と同じ要素のまま退場させる */}
+      {[...leavingOnly, ...creatures].map((creature) => (
         <div
           key={creature.id}
           ref={registerNode(creature.id)}

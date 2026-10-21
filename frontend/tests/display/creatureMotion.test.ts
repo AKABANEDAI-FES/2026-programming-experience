@@ -5,7 +5,10 @@ import type { BasicCommand as Command } from 'shared';
 import {
   CREATURE_HEIGHT,
   CREATURE_WIDTH,
+  ENTER_DURATION_MS,
   createMotion,
+  hasLeftScreen,
+  startLeaving,
   stepMotion,
   toVisual,
   type CreatureMotion,
@@ -26,6 +29,9 @@ const motionAt = (overrides: Partial<CreatureMotion> = {}): CreatureMotion => ({
   bobPhase: 0,
   commandIndex: 0,
   commandElapsed: 0,
+  enterRemaining: 0,
+  enterFromY: -CREATURE_HEIGHT - 40,
+  leaveDirection: 0,
   ...overrides,
 });
 
@@ -275,4 +281,79 @@ test('どの動きも、終わったあとは次のコマンドへ進む', () =>
 
     assert.equal(next.commandIndex, 1);
   }
+});
+
+test('登場：水面（画面の上の外）から沈み始め、終わると泳ぐ高さに着く', () => {
+  const entering = createMotion(BOUNDS, () => 0.5, { entering: true });
+
+  assert.ok(toVisual(entering, []).y < -CREATURE_HEIGHT);
+
+  // 沈んでくる間も、泳ぐ高さ（y）は変わらない
+  const halfway = runFrames(entering, ENTER_DURATION_MS / 2 / FRAME_MS);
+  assert.equal(halfway.y, entering.y);
+  assert.ok(toVisual(halfway, []).y > -CREATURE_HEIGHT);
+
+  const arrived = runFrames(entering, ENTER_DURATION_MS / FRAME_MS + 1);
+  assert.equal(arrived.enterRemaining, 0);
+  assert.equal(toVisual(arrived, []).entering, false);
+  assert.ok(Math.abs(toVisual(arrived, []).y - arrived.y) <= 8);
+});
+
+test('登場：沈んでくる間はコマンドを始めず、着いてから始める', () => {
+  const say: Command[] = [{ type: 'say', text: 'やあ' }];
+  const entering = createMotion(BOUNDS, () => 0.5, { entering: true });
+  const halfway = runFrames(entering, 60, say);
+
+  assert.equal(halfway.commandElapsed, 0);
+  assert.equal(toVisual(halfway, say).sayText, null);
+  assert.equal(toVisual(halfway, say).entering, true);
+
+  const arrived = runFrames(entering, ENTER_DURATION_MS / FRAME_MS + 10, say);
+  assert.equal(toVisual(arrived, say).sayText, 'やあ');
+});
+
+test('登場しない作品（開き直して戻ってきた作品）は、最初から泳ぐ高さにいる', () => {
+  const motion = createMotion(BOUNDS, () => 0.5);
+
+  assert.equal(motion.enterRemaining, 0);
+  assert.ok(toVisual(motion, []).y < BOUNDS.height);
+});
+
+/** 画面の外へ出きるまで進める（出きらなければ maxMs で止める） */
+const runUntilLeft = (motion: CreatureMotion, commands: Command[] = [], maxMs = 10_000) => {
+  let current = motion;
+  let elapsed = 0;
+
+  while (!hasLeftScreen(current, BOUNDS) && elapsed < maxMs) {
+    current = stepMotion(current, commands, FRAME_MS, BOUNDS, () => 0.5);
+    elapsed += FRAME_MS;
+  }
+
+  return { motion: current, elapsed };
+};
+
+test('退場：画面の真ん中より左にいれば左へ、右にいれば右へ泳いで、画面の外に出る', () => {
+  const left = runUntilLeft(startLeaving(motionAt({ x: 100 }), BOUNDS));
+  const right = runUntilLeft(startLeaving(motionAt({ x: 700 }), BOUNDS));
+
+  assert.ok(hasLeftScreen(left.motion, BOUNDS));
+  assert.ok(left.motion.x < -CREATURE_WIDTH);
+  assert.ok(hasLeftScreen(right.motion, BOUNDS));
+  assert.ok(right.motion.x > BOUNDS.width);
+  // 右へ泳いでいる途中でも、左の端が近ければ向きを変えて左へ出ていく
+  assert.ok(left.elapsed < 5000);
+});
+
+test('退場：泳いでいく間はコマンドを進めず、後ろに泡を出す', () => {
+  const say: Command[] = [{ type: 'say', text: 'やあ' }];
+  const leaving = runFrames(startLeaving(motionAt({ x: 700 }), BOUNDS), 30, say);
+  const visual = toVisual(leaving, say);
+
+  assert.equal(leaving.commandElapsed, 0);
+  assert.equal(visual.sayText, null);
+  assert.ok(visual.dashIntensity > 0);
+});
+
+test('退場していない作品は、画面の外に出たことにならない', () => {
+  assert.equal(hasLeftScreen(motionAt({ x: -1000 }), BOUNDS), false);
 });
