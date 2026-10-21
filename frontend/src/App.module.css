@@ -4,3 +4,27 @@
   background: #f7faf9;
   color: #14201d;
 }
+
+.completeScreen {
+  width: min(100% - 32px, 640px);
+  margin: auto;
+  padding: 48px 32px;
+  border-radius: 24px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 16px 48px rgb(20 32 29 / 10%);
+}
+
+.completeScreen h1 {
+  margin: 8px 0;
+  font-size: clamp(28px, 5vw, 42px);
+}
+
+.completeScreen p {
+  color: #52635f;
+}
+
+.completeLabel {
+  color: #316b5f !important;
+  font-weight: 700;
+}

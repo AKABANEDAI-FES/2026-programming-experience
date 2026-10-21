@@ -32,6 +32,8 @@ npm run dev
 - **フロントエンド（参加者用画面）:** `http://localhost:5173`
 - **バックエンド（APIサーバー）:** `http://localhost:8787`
 
+放流APIには放流用トークンが必要ですが、`npm run dev` では開発用トークンが自動で使われるため、設定は不要です。本番運用の設定手順は [docs/deploy.md](docs/deploy.md) を参照してください。
+
 ## 4. 主要なディレクトリ構成
 
 - **frontend/:** フロントエンドアプリケーション（React + TypeScript + Vite + CSS Modules）

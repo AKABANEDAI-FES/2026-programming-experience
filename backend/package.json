@@ -2,10 +2,10 @@
   "name": "backend",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "node scripts/prepare-dev.mjs && wrangler dev",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "test": "node --test --test-isolation=none --experimental-strip-types \"tests/**/*.test.ts\"",
+    "test": "node --import ./tests/register-test-hooks.mjs --test --test-isolation=none --experimental-strip-types \"tests/**/*.test.ts\"",
     "lint": "eslint ."
   },
   "dependencies": {

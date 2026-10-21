@@ -1,0 +1,20 @@
+/* アプリ全体で使う色・文字・ボタンの値（ホーム画面のデザイン案 1c の仕様） */
+:root {
+  --sea-50: #eaf7fd;
+  --sea-200: #9edcf6;
+  --sea-500: #3ba7e3;
+  --sea-700: #1f6fb8;
+  --ink: #17305a;
+  --white: #ffffff;
+
+  --orange: #f2711c;
+  --orange-hover: #ff8233;
+  --orange-shadow: #b9530c;
+  --yellow: #ffcc33;
+  --yellow-hover: #ffd659;
+  --yellow-shadow: #d99a00;
+
+  --card-shadow: rgb(23 48 90 / 18%);
+
+  --font-rounded: 'M PLUS Rounded 1c', system-ui, sans-serif;
+}

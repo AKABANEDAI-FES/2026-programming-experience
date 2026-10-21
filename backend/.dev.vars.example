@@ -1,0 +1,3 @@
+# 開発用の放流トークン。frontend/src/lib/release-submission.ts の DEV_RELEASE_TOKEN と同じ値にする
+# 本番のトークンは wrangler secret put RELEASE_TOKEN で別に設定する（docs/deploy.md）
+RELEASE_TOKEN=local-dev-release-token

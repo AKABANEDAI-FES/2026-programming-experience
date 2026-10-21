@@ -1,87 +1,188 @@
-.screen {
-  width: 100%;
-  display: grid;
-  place-items: center;
-  padding: 48px 24px;
-  box-sizing: border-box;
+/* ホーム画面（デザイン案 1c「かみが うかぶ」）。数値は 1920×1080 の舞台での実寸 */
+.titleArea {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
 }
 
-.content {
-  width: min(720px, 100%);
-}
-
-.label {
-  margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #316b5f;
+.subtitle {
+  margin: 0;
+  padding: 12px 32px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 90%);
+  box-shadow: 0 4px 12px rgb(23 48 90 / 12%);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--sea-700);
 }
 
 .title {
-  margin: 0 0 32px;
-  font-size: 40px;
-  line-height: 1.2;
-  font-weight: 700;
+  margin: 0;
+  font-size: 104px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--ink);
+  -webkit-text-stroke: 6px var(--white);
+  paint-order: stroke fill;
+  text-shadow: 0 4px 10px rgb(23 48 90 / 18%);
 }
 
-.actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.guide {
+  position: absolute;
+  left: 60px;
+  bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
 }
 
-.modeButton {
-  min-height: 148px;
+.bubble {
+  position: relative;
+  margin: 0 0 0 10px;
+  padding: 22px 36px;
+  border-radius: 40px;
+  background: var(--white);
+  box-shadow: 0 8px 0 rgb(23 48 90 / 15%);
+  font-size: 40px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* 吹き出しのしっぽ（下のイニャーを指す） */
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 72px;
+  bottom: -22px;
+  border: 14px solid transparent;
+  border-top: 14px solid var(--white);
+}
+
+.guideImage {
+  width: 380px;
+  height: auto;
+  filter: drop-shadow(0 12px 16px rgb(23 48 90 / 25%));
+}
+
+.choices {
+  position: absolute;
+  left: 500px;
+  top: 330px;
+  width: 1340px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.choice {
+  width: 600px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px;
-  border: 2px solid #c8d8d3;
-  border-radius: 8px;
-  background: #ffffff;
-  color: inherit;
-  text-align: left;
+  align-items: center;
+  gap: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   cursor: pointer;
+}
+
+.choice[data-mode='free'] {
+  transform: rotate(-3deg);
+}
+
+.choice[data-mode='coloring'] {
+  transform: rotate(3deg);
+}
+
+.paper {
+  position: relative;
+  width: 560px;
+  height: 336px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: 0 20px 0 var(--card-shadow);
+  transition: transform 0.15s ease;
+}
+
+.choice:hover .paper {
+  transform: translateY(-8px);
+}
+
+/* 紙をとめているテープ */
+.tape {
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  width: 120px;
+  height: 36px;
+  margin-left: -60px;
+  border-radius: 4px;
+  background: rgb(255 204 51 / 85%);
+}
+
+.choice[data-mode='coloring'] .tape {
+  background: rgb(127 208 242 / 90%);
+}
+
+.paperImage {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  object-fit: contain;
+}
+
+.choiceLabel {
+  width: 520px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--orange);
+  box-shadow: 0 10px 0 var(--orange-shadow);
+  color: var(--white);
+  font-size: 52px;
+  font-weight: 800;
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
 }
 
-.modeButton:hover {
-  border-color: #3a7d70;
-  box-shadow: 0 12px 28px rgb(20 32 29 / 12%);
-  transform: translateY(-2px);
+.choice[data-mode='coloring'] .choiceLabel {
+  background: var(--yellow);
+  box-shadow: 0 10px 0 var(--yellow-shadow);
+  color: var(--ink);
 }
 
-.modeButton:focus-visible {
-  outline: 3px solid #3a7d70;
-  outline-offset: 3px;
+.choice:hover .choiceLabel {
+  background: var(--orange-hover);
 }
 
-.modeTitle {
-  font-size: 24px;
-  line-height: 1.25;
-  font-weight: 700;
+.choice[data-mode='coloring']:hover .choiceLabel {
+  background: var(--yellow-hover);
 }
 
-.modeDescription {
-  font-size: 15px;
-  line-height: 1.6;
-  color: #52635f;
+/* 押すとボタンが沈む */
+.choice:active .choiceLabel {
+  transform: translateY(10px);
+  box-shadow: none;
 }
 
-@media (max-width: 640px) {
-  .screen {
-    padding: 32px 16px;
-  }
+.choice:focus-visible {
+  outline: none;
+}
 
-  .title {
-    font-size: 30px;
-  }
-
-  .actions {
-    grid-template-columns: 1fr;
-  }
+.choice:focus-visible .choiceLabel {
+  outline: 6px solid var(--sea-700);
+  outline-offset: 6px;
 }

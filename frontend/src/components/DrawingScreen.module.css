@@ -58,6 +58,40 @@
   box-shadow: 0 2px 6px rgb(20 32 29 / 12%);
 }
 
+.templateSwitcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.templateButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 4px 16px 4px 4px;
+  border: 2px solid #c7d8d2;
+  border-radius: 12px;
+  background: #fff;
+  color: #39504a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.templateButton[aria-pressed='true'] {
+  border-color: #176451;
+  color: #176451;
+  box-shadow: 0 2px 6px rgb(20 32 29 / 12%);
+}
+
+.templateThumbnail {
+  width: 80px;
+  height: 48px;
+  border-radius: 8px;
+  background: #fff;
+  object-fit: contain;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -78,6 +112,32 @@
   gap: 8px;
 }
 
+.paletteGroup,
+.customColorLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.paletteGroup {
+  padding: 4px 8px 4px 0;
+  border-right: 1px solid #c7d8d2;
+}
+
+.paletteLabel,
+.customColorLabel span {
+  color: #52635f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.colorOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .toolButton,
 .actionButton,
 .clearButton,
@@ -95,6 +155,18 @@
 .clearButton {
   padding: 8px 14px;
   cursor: pointer;
+}
+
+.toolButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.toolButton > svg {
+  width: 1em;
+  height: 1em;
+  flex: none;
 }
 
 .toolButton[aria-pressed='true'] {
@@ -121,6 +193,45 @@
     0 0 0 4px #176451;
 }
 
+.customColorLabel {
+  cursor: pointer;
+}
+
+.customColorInput {
+  width: 44px;
+  height: 44px;
+  padding: 2px;
+  border: 3px solid #9db4ad;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.customColorInput::-webkit-color-swatch {
+  border: 0;
+  border-radius: 999px;
+}
+
+.customColorInput::-moz-color-swatch {
+  border: 0;
+  border-radius: 999px;
+}
+
+.customColorLabel[data-active='true'] .customColorInput {
+  border-color: #176451;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px #176451;
+}
+
+.colorNotice {
+  flex-basis: 100%;
+  margin: 0;
+  color: #a13a30;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .lineWidthLabel {
   display: flex;
   align-items: center;
@@ -144,7 +255,9 @@
 }
 
 .modeButton:focus-visible,
+.templateButton:focus-visible,
 .toolbar button:focus-visible,
+.customColorInput:focus-visible,
 .lineWidthLabel select:focus-visible {
   outline: 3px solid #176451;
   outline-offset: 2px;

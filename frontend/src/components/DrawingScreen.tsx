@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useEffectEvent,
   useRef,
@@ -7,13 +8,25 @@ import {
   type PointerEvent,
 } from 'react';
 import type { DrawMode } from 'shared';
-import inyaaOutline from '../assets/inyaa-outline.svg';
+import { Eraser, PaintRoller, PenLine } from 'lucide-react';
+import {
+  COLORING_TEMPLATES,
+  DEFAULT_COLORING_TEMPLATE_ID,
+  type ColoringTemplateId,
+} from '../constants/coloringTemplates';
 import { DRAW_MODES, DRAW_MODE_COPY } from '../constants/drawModes';
 import { applyFillToEditingLayer } from '../lib/paint/applyFillToEditingLayer';
+import { clearOuterBackground } from '../lib/paint/clearOuterBackground';
 import { createChangedPixelMask } from '../lib/paint/createChangedPixelMask';
 import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
 import styles from './DrawingScreen.module.css';
+
+const TOOL_OPTIONS = [
+  { id: 'pen', label: 'ペン', Icon: PenLine },
+  { id: 'eraser', label: 'けしゴム', Icon: Eraser },
+  { id: 'fill', label: 'ぬりつぶし', Icon: PaintRoller },
+] as const;
 
 type DrawingScreenProps = {
   mode: DrawMode;
@@ -26,7 +39,7 @@ type Point = {
   y: number;
 };
 
-type Tool = 'pen' | 'eraser' | 'fill';
+type Tool = (typeof TOOL_OPTIONS)[number]['id'];
 
 type FillFeedback = {
   id: number;
@@ -42,21 +55,46 @@ type CursorIndicator = {
 const DRAWING_WIDTH = 1000;
 const DRAWING_HEIGHT = 600;
 const MAX_HISTORY_ENTRIES = 10;
+const FILL_FEEDBACK_DURATION_MS = 3000;
 const UNFILLABLE_MESSAGE = 'この範囲は塗りつぶせないよ。線で囲んでみよう！';
 const FILL_ERROR_MESSAGE = 'うまく塗りつぶせなかったよ。もう一度試してね。';
 const HIGHLIGHT_COLOR: Rgba = { r: 239, g: 68, b: 68, a: 104 };
 const FILL_CURSOR_DIAMETER = 18;
 
-const COLORS = [
-  { value: '#1f2937', label: 'くろ' },
-  { value: '#ef4444', label: 'あか' },
-  { value: '#f59e0b', label: 'オレンジ' },
-  { value: '#eab308', label: 'きいろ' },
-  { value: '#22c55e', label: 'みどり' },
-  { value: '#3b82f6', label: 'あお' },
-  { value: '#8b5cf6', label: 'むらさき' },
-  { value: '#ec4899', label: 'ピンク' },
+const COLOR_GROUPS = [
+  {
+    label: 'あたたかい色',
+    colors: [
+      { value: '#ef4444', label: 'あか' },
+      { value: '#f59e0b', label: 'オレンジ' },
+      { value: '#eab308', label: 'きいろ' },
+      { value: '#ec4899', label: 'ピンク' },
+      { value: '#f2a879', label: 'はだいろ' },
+      { value: '#92400e', label: 'ちゃいろ' },
+    ],
+  },
+  {
+    label: 'つめたい色',
+    colors: [
+      { value: '#84cc16', label: 'きみどり' },
+      { value: '#22c55e', label: 'みどり' },
+      { value: '#38bdf8', label: 'みずいろ' },
+      { value: '#3b82f6', label: 'あお' },
+      { value: '#1e3a8a', label: 'こん' },
+      { value: '#8b5cf6', label: 'むらさき' },
+    ],
+  },
+  {
+    label: 'そのほかの色',
+    colors: [
+      { value: '#1f2937', label: 'くろ' },
+      { value: '#6b7280', label: 'はいいろ' },
+    ],
+  },
 ] as const;
+
+const DEFAULT_COLOR = '#1f2937';
+const NEAR_WHITE_MESSAGE = '白に近い色は大画面で消えることがあるので、別の色を選んでね。';
 
 const LINE_WIDTHS = [4, 8, 16, 24] as const;
 
@@ -71,6 +109,11 @@ const toRgba = (hex: string): Rgba => {
   };
 };
 
+const isNearWhite = (hex: string): boolean => {
+  const { r, g, b } = toRgba(hex);
+  return r >= 240 && g >= 240 && b >= 240;
+};
+
 export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: DrawingScreenProps) {
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -83,13 +126,19 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const history = useRef<DrawingHistoryEntry[]>([]);
   const nextFillFeedbackId = useRef(0);
   const [tool, setTool] = useState<Tool>('pen');
-  const [color, setColor] = useState<string>(COLORS[0].value);
+  const [color, setColor] = useState<string>(DEFAULT_COLOR);
+  const [customColor, setCustomColor] = useState<string>(DEFAULT_COLOR);
+  const [colorSource, setColorSource] = useState<'preset' | 'custom'>('preset');
+  const [colorNotice, setColorNotice] = useState<string | null>(null);
   const [lineWidth, setLineWidth] = useState<number>(LINE_WIDTHS[1]);
   const [canUndo, setCanUndo] = useState(false);
   const [canClear, setCanClear] = useState(false);
   const [fillFeedback, setFillFeedback] = useState<FillFeedback | null>(null);
   const [cursorIndicator, setCursorIndicator] = useState<CursorIndicator | null>(null);
+  const [templateId, setTemplateId] = useState<ColoringTemplateId>(DEFAULT_COLORING_TEMPLATE_ID);
   const copy = DRAW_MODE_COPY[mode];
+  const templateSrc =
+    COLORING_TEMPLATES.find(({ id }) => id === templateId)?.src ?? COLORING_TEMPLATES[0].src;
 
   const cancelActiveStroke = () => {
     const pointerId = activePointerId.current;
@@ -117,12 +166,12 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     setCanUndo(true);
   };
 
-  const clearFillFeedback = () => {
+  const clearFillFeedback = useCallback(() => {
     const highlightContext = highlightCanvasRef.current?.getContext('2d');
 
     highlightContext?.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
     setFillFeedback(null);
-  };
+  }, []);
 
   const showFillFeedback = (message: string, mask?: Uint8Array) => {
     const highlightContext = highlightCanvasRef.current?.getContext('2d');
@@ -152,6 +201,16 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     nextFillFeedbackId.current += 1;
     setFillFeedback({ id: nextFillFeedbackId.current, message });
   };
+
+  useEffect(() => {
+    if (fillFeedback === null) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(clearFillFeedback, FILL_FEEDBACK_DURATION_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fillFeedback, clearFillFeedback]);
 
   useEffect(() => {
     const backgroundCanvas = backgroundCanvasRef.current;
@@ -192,9 +251,10 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
         return;
       }
 
+      // 下絵はキャンバスと同じ 1000×600 で描かれているため、全体に収まるように描く
       const scale = Math.min(
-        (DRAWING_WIDTH * 0.7) / outlineImage.naturalWidth,
-        (DRAWING_HEIGHT * 0.8) / outlineImage.naturalHeight,
+        DRAWING_WIDTH / outlineImage.naturalWidth,
+        DRAWING_HEIGHT / outlineImage.naturalHeight,
       );
       const width = outlineImage.naturalWidth * scale;
       const height = outlineImage.naturalHeight * scale;
@@ -213,13 +273,13 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
         isReadyToDraw.current = true;
       }
     };
-    outlineImage.src = inyaaOutline;
+    outlineImage.src = templateSrc;
 
     return () => {
       isCurrent = false;
       cancelActiveStroke();
     };
-  }, [mode]);
+  }, [mode, templateSrc]);
 
   const getPoint = (event: PointerEvent<HTMLCanvasElement>): Point => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -232,16 +292,21 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     };
   };
 
-  const updateCursorIndicatorAt = (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
-    const bounds = canvas.getBoundingClientRect();
-    const scale = bounds.width / DRAWING_WIDTH;
+  const updateCursorIndicatorAt = useCallback(
+    (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
+      const bounds = canvas.getBoundingClientRect();
+      const scale = bounds.width / DRAWING_WIDTH;
 
-    setCursorIndicator({
-      leftPercent: ((clientX - bounds.left) / bounds.width) * 100,
-      topPercent: ((clientY - bounds.top) / bounds.height) * 100,
-      diameter: tool === 'fill' ? FILL_CURSOR_DIAMETER : lineWidth * scale,
-    });
-  };
+      const pointerX = clientX - bounds.left;
+      const diameter = tool === 'fill' ? FILL_CURSOR_DIAMETER : lineWidth * scale;
+      setCursorIndicator({
+        leftPercent: (pointerX / bounds.width) * 100,
+        topPercent: ((clientY - bounds.top) / bounds.height) * 100,
+        diameter,
+      });
+    },
+    [tool, lineWidth, setCursorIndicator],
+  );
 
   const updateCursorIndicator = (event: PointerEvent<HTMLCanvasElement>) => {
     lastPointerClient.current = { clientX: event.clientX, clientY: event.clientY };
@@ -260,7 +325,7 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       lastPointerClient.current.clientX,
       lastPointerClient.current.clientY,
     );
-  }, [tool, lineWidth]);
+  }, [updateCursorIndicatorAt]);
 
   const drawDot = (context: CanvasRenderingContext2D, point: Point) => {
     context.beginPath();
@@ -432,7 +497,6 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       return;
     }
 
-    cancelActiveStroke();
     clearFillFeedback();
     context.globalCompositeOperation = 'source-over';
     context.putImageData(previousState.imageData, 0, 0);
@@ -505,6 +569,32 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     onModeChange(nextMode);
   };
 
+  const handleTemplateChange = (nextTemplateId: ColoringTemplateId) => {
+    const context = canvasRef.current?.getContext('2d');
+
+    if (nextTemplateId === templateId || context === null || context === undefined) {
+      return;
+    }
+
+    // 別の下絵に前の色がずれて残らないよう、描いた内容は消す。
+    // 「ひとつ戻す」で前の下絵の色が戻らないよう、履歴もリセットする
+    if (
+      hasDrawing.current &&
+      !window.confirm('ぬりえを かえると、いま かいた えは ぜんぶ きえるよ。かえる？')
+    ) {
+      return;
+    }
+
+    cancelActiveStroke();
+    clearFillFeedback();
+    context.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
+    hasDrawing.current = false;
+    history.current = [];
+    setCanUndo(false);
+    setCanClear(false);
+    setTemplateId(nextTemplateId);
+  };
+
   const handleNext = () => {
     const backgroundCanvas = backgroundCanvasRef.current;
     const editingCanvas = canvasRef.current;
@@ -524,6 +614,12 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
 
     compositeContext.drawImage(backgroundCanvas, 0, 0);
     compositeContext.drawImage(editingCanvas, 0, 0);
+
+    // 大画面ではキャラクターの形だけを泳がせたいので、外側の白い背景は透明にして渡す
+    const imageData = compositeContext.getImageData(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
+    clearOuterBackground(imageData.data, DRAWING_WIDTH, DRAWING_HEIGHT);
+    compositeContext.putImageData(imageData, 0, 0);
+
     onDrawingComplete(compositeCanvas.toDataURL('image/png'));
   };
 
@@ -551,47 +647,93 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
         ))}
       </div>
 
+      {mode === 'coloring' && (
+        <div className={styles.templateSwitcher} role="group" aria-label="ぬりえを えらぶ">
+          {COLORING_TEMPLATES.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className={styles.templateButton}
+              aria-pressed={templateId === template.id}
+              onClick={() => handleTemplateChange(template.id)}
+            >
+              <img className={styles.templateThumbnail} src={template.src} alt="" />
+              {template.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className={styles.toolbar} aria-label="おえかきのどうぐ">
         <div className={styles.toolGroup} role="group" aria-label="どうぐを選ぶ">
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'pen'}
-            onClick={() => setTool('pen')}
-          >
-            ペン
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'eraser'}
-            onClick={() => setTool('eraser')}
-          >
-            けしゴム
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'fill'}
-            onClick={() => setTool('fill')}
-          >
-            ぬりつぶし
-          </button>
+          {TOOL_OPTIONS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={styles.toolButton}
+              aria-pressed={tool === id}
+              onClick={() => setTool(id)}
+            >
+              <Icon aria-hidden="true" />
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className={styles.colorGroup} role="group" aria-label="色を選ぶ">
-          {COLORS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={styles.colorButton}
-              style={{ '--color-swatch': option.value } as CSSProperties}
-              aria-label={`${option.label}を選ぶ`}
-              aria-pressed={color === option.value}
-              onClick={() => setColor(option.value)}
-            />
+          {COLOR_GROUPS.map((group) => (
+            <div
+              key={group.label}
+              className={styles.paletteGroup}
+              role="group"
+              aria-label={group.label}
+            >
+              <span className={styles.paletteLabel}>{group.label}</span>
+              <div className={styles.colorOptions}>
+                {group.colors.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={styles.colorButton}
+                    style={{ '--color-swatch': option.value } as CSSProperties}
+                    aria-label={`${option.label}を選ぶ`}
+                    aria-pressed={colorSource === 'preset' && color === option.value}
+                    onClick={() => {
+                      setColor(option.value);
+                      setColorSource('preset');
+                      setColorNotice(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
+          <label className={styles.customColorLabel} data-active={colorSource === 'custom'}>
+            <span>じぶんでえらぶ</span>
+            <input
+              className={styles.customColorInput}
+              type="color"
+              value={customColor}
+              aria-label="じぶんで色をえらぶ"
+              onChange={(event) => {
+                const nextColor = event.target.value;
+                if (isNearWhite(nextColor)) {
+                  setColorNotice(NEAR_WHITE_MESSAGE);
+                  return;
+                }
+                setCustomColor(nextColor);
+                setColor(nextColor);
+                setColorSource('custom');
+                setColorNotice(null);
+              }}
+            />
+          </label>
         </div>
+        {colorNotice !== null && (
+          <p className={styles.colorNotice} role="status">
+            {colorNotice}
+          </p>
+        )}
 
         <label className={styles.lineWidthLabel}>
           太さ
@@ -643,7 +785,10 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerEnter={updateCursorIndicator}
-          onPointerLeave={() => setCursorIndicator(null)}
+          onPointerLeave={() => {
+            lastPointerClient.current = null;
+            setCursorIndicator(null);
+          }}
           onPointerUp={finishStroke}
           onPointerCancel={finishStroke}
         />

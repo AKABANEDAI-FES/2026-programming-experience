@@ -1,5 +1,5 @@
 {
-  "name": "2026-programing-experience",
+  "name": "2026-programming-experience",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -12,20 +12,21 @@
     "dev": "concurrently \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npm run test --workspace=frontend"
+    "test": "npm run test --workspace=frontend",
+    "deploy": "npm run build --workspace=frontend && npm run deploy --workspace=backend"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AKABANEDAI-FES/2026-programing-experience.git"
+    "url": "git+https://github.com/AKABANEDAI-FES/2026-programming-experience.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/AKABANEDAI-FES/2026-programing-experience/issues"
+    "url": "https://github.com/AKABANEDAI-FES/2026-programming-experience/issues"
   },
-  "homepage": "https://github.com/AKABANEDAI-FES/2026-programing-experience#readme",
+  "homepage": "https://github.com/AKABANEDAI-FES/2026-programming-experience#readme",
   "devDependencies": {
     "concurrently": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
