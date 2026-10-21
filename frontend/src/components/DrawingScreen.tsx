@@ -7,6 +7,7 @@ import {
   type PointerEvent,
 } from 'react';
 import type { DrawMode } from 'shared';
+import { Eraser, PaintRoller, PenLine } from 'lucide-react';
 import {
   COLORING_TEMPLATES,
   DEFAULT_COLORING_TEMPLATE_ID,
@@ -20,6 +21,12 @@ import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
 import styles from './DrawingScreen.module.css';
 
+const TOOL_OPTIONS = [
+  { id: 'pen', label: 'ペン', Icon: PenLine },
+  { id: 'eraser', label: 'けしゴム', Icon: Eraser },
+  { id: 'fill', label: 'ぬりつぶし', Icon: PaintRoller },
+] as const;
+
 type DrawingScreenProps = {
   mode: DrawMode;
   onModeChange: (mode: DrawMode) => void;
@@ -31,7 +38,7 @@ type Point = {
   y: number;
 };
 
-type Tool = 'pen' | 'eraser' | 'fill';
+type Tool = (typeof TOOL_OPTIONS)[number]['id'];
 
 type FillFeedback = {
   id: number;
@@ -53,16 +60,40 @@ const FILL_ERROR_MESSAGE = 'うまく塗りつぶせなかったよ。もう一�
 const HIGHLIGHT_COLOR: Rgba = { r: 239, g: 68, b: 68, a: 104 };
 const FILL_CURSOR_DIAMETER = 18;
 
-const COLORS = [
-  { value: '#1f2937', label: 'くろ' },
-  { value: '#ef4444', label: 'あか' },
-  { value: '#f59e0b', label: 'オレンジ' },
-  { value: '#eab308', label: 'きいろ' },
-  { value: '#22c55e', label: 'みどり' },
-  { value: '#3b82f6', label: 'あお' },
-  { value: '#8b5cf6', label: 'むらさき' },
-  { value: '#ec4899', label: 'ピンク' },
+const COLOR_GROUPS = [
+  {
+    label: 'あたたかい色',
+    colors: [
+      { value: '#ef4444', label: 'あか' },
+      { value: '#f59e0b', label: 'オレンジ' },
+      { value: '#eab308', label: 'きいろ' },
+      { value: '#ec4899', label: 'ピンク' },
+      { value: '#f2a879', label: 'はだいろ' },
+      { value: '#92400e', label: 'ちゃいろ' },
+    ],
+  },
+  {
+    label: 'つめたい色',
+    colors: [
+      { value: '#84cc16', label: 'きみどり' },
+      { value: '#22c55e', label: 'みどり' },
+      { value: '#38bdf8', label: 'みずいろ' },
+      { value: '#3b82f6', label: 'あお' },
+      { value: '#1e3a8a', label: 'こん' },
+      { value: '#8b5cf6', label: 'むらさき' },
+    ],
+  },
+  {
+    label: 'そのほかの色',
+    colors: [
+      { value: '#1f2937', label: 'くろ' },
+      { value: '#6b7280', label: 'はいいろ' },
+    ],
+  },
 ] as const;
+
+const DEFAULT_COLOR = '#1f2937';
+const NEAR_WHITE_MESSAGE = '白に近い色は大画面で消えることがあるので、別の色を選んでね。';
 
 const LINE_WIDTHS = [4, 8, 16, 24] as const;
 
@@ -77,6 +108,11 @@ const toRgba = (hex: string): Rgba => {
   };
 };
 
+const isNearWhite = (hex: string): boolean => {
+  const { r, g, b } = toRgba(hex);
+  return r >= 240 && g >= 240 && b >= 240;
+};
+
 export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: DrawingScreenProps) {
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,7 +125,10 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const history = useRef<DrawingHistoryEntry[]>([]);
   const nextFillFeedbackId = useRef(0);
   const [tool, setTool] = useState<Tool>('pen');
-  const [color, setColor] = useState<string>(COLORS[0].value);
+  const [color, setColor] = useState<string>(DEFAULT_COLOR);
+  const [customColor, setCustomColor] = useState<string>(DEFAULT_COLOR);
+  const [colorSource, setColorSource] = useState<'preset' | 'custom'>('preset');
+  const [colorNotice, setColorNotice] = useState<string | null>(null);
   const [lineWidth, setLineWidth] = useState<number>(LINE_WIDTHS[1]);
   const [canUndo, setCanUndo] = useState(false);
   const [canClear, setCanClear] = useState(false);
@@ -257,10 +296,12 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       const bounds = canvas.getBoundingClientRect();
       const scale = bounds.width / DRAWING_WIDTH;
 
+      const pointerX = clientX - bounds.left;
+      const diameter = tool === 'fill' ? FILL_CURSOR_DIAMETER : lineWidth * scale;
       setCursorIndicator({
-        leftPercent: ((clientX - bounds.left) / bounds.width) * 100,
+        leftPercent: (pointerX / bounds.width) * 100,
         topPercent: ((clientY - bounds.top) / bounds.height) * 100,
-        diameter: tool === 'fill' ? FILL_CURSOR_DIAMETER : lineWidth * scale,
+        diameter,
       });
     },
     [tool, lineWidth, setCursorIndicator],
@@ -589,45 +630,74 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
 
       <div className={styles.toolbar} aria-label="おえかきのどうぐ">
         <div className={styles.toolGroup} role="group" aria-label="どうぐを選ぶ">
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'pen'}
-            onClick={() => setTool('pen')}
-          >
-            ペン
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'eraser'}
-            onClick={() => setTool('eraser')}
-          >
-            けしゴム
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'fill'}
-            onClick={() => setTool('fill')}
-          >
-            ぬりつぶし
-          </button>
+          {TOOL_OPTIONS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={styles.toolButton}
+              aria-pressed={tool === id}
+              onClick={() => setTool(id)}
+            >
+              <Icon aria-hidden="true" />
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className={styles.colorGroup} role="group" aria-label="色を選ぶ">
-          {COLORS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={styles.colorButton}
-              style={{ '--color-swatch': option.value } as CSSProperties}
-              aria-label={`${option.label}を選ぶ`}
-              aria-pressed={color === option.value}
-              onClick={() => setColor(option.value)}
-            />
+          {COLOR_GROUPS.map((group) => (
+            <div
+              key={group.label}
+              className={styles.paletteGroup}
+              role="group"
+              aria-label={group.label}
+            >
+              <span className={styles.paletteLabel}>{group.label}</span>
+              <div className={styles.colorOptions}>
+                {group.colors.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={styles.colorButton}
+                    style={{ '--color-swatch': option.value } as CSSProperties}
+                    aria-label={`${option.label}を選ぶ`}
+                    aria-pressed={colorSource === 'preset' && color === option.value}
+                    onClick={() => {
+                      setColor(option.value);
+                      setColorSource('preset');
+                      setColorNotice(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
+          <label className={styles.customColorLabel} data-active={colorSource === 'custom'}>
+            <span>じぶんでえらぶ</span>
+            <input
+              className={styles.customColorInput}
+              type="color"
+              value={customColor}
+              aria-label="じぶんで色をえらぶ"
+              onChange={(event) => {
+                const nextColor = event.target.value;
+                if (isNearWhite(nextColor)) {
+                  setColorNotice(NEAR_WHITE_MESSAGE);
+                  return;
+                }
+                setCustomColor(nextColor);
+                setColor(nextColor);
+                setColorSource('custom');
+                setColorNotice(null);
+              }}
+            />
+          </label>
         </div>
+        {colorNotice !== null && (
+          <p className={styles.colorNotice} role="status">
+            {colorNotice}
+          </p>
+        )}
 
         <label className={styles.lineWidthLabel}>
           太さ
