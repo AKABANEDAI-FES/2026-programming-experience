@@ -7,6 +7,7 @@ import {
   type PointerEvent,
 } from 'react';
 import type { DrawMode } from 'shared';
+import { Eraser, PaintRoller, PenLine } from 'lucide-react';
 import {
   COLORING_TEMPLATES,
   DEFAULT_COLORING_TEMPLATE_ID,
@@ -20,6 +21,12 @@ import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
 import styles from './DrawingScreen.module.css';
 
+const TOOL_OPTIONS = [
+  { id: 'pen', label: 'ペン', Icon: PenLine },
+  { id: 'eraser', label: 'けしゴム', Icon: Eraser },
+  { id: 'fill', label: 'ぬりつぶし', Icon: PaintRoller },
+] as const;
+
 type DrawingScreenProps = {
   mode: DrawMode;
   onModeChange: (mode: DrawMode) => void;
@@ -31,7 +38,7 @@ type Point = {
   y: number;
 };
 
-type Tool = 'pen' | 'eraser' | 'fill';
+type Tool = (typeof TOOL_OPTIONS)[number]['id'];
 
 type FillFeedback = {
   id: number;
@@ -289,10 +296,12 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       const bounds = canvas.getBoundingClientRect();
       const scale = bounds.width / DRAWING_WIDTH;
 
+      const pointerX = clientX - bounds.left;
+      const diameter = tool === 'fill' ? FILL_CURSOR_DIAMETER : lineWidth * scale;
       setCursorIndicator({
-        leftPercent: ((clientX - bounds.left) / bounds.width) * 100,
+        leftPercent: (pointerX / bounds.width) * 100,
         topPercent: ((clientY - bounds.top) / bounds.height) * 100,
-        diameter: tool === 'fill' ? FILL_CURSOR_DIAMETER : lineWidth * scale,
+        diameter,
       });
     },
     [tool, lineWidth, setCursorIndicator],
@@ -621,30 +630,18 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
 
       <div className={styles.toolbar} aria-label="おえかきのどうぐ">
         <div className={styles.toolGroup} role="group" aria-label="どうぐを選ぶ">
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'pen'}
-            onClick={() => setTool('pen')}
-          >
-            ペン
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'eraser'}
-            onClick={() => setTool('eraser')}
-          >
-            けしゴム
-          </button>
-          <button
-            type="button"
-            className={styles.toolButton}
-            aria-pressed={tool === 'fill'}
-            onClick={() => setTool('fill')}
-          >
-            ぬりつぶし
-          </button>
+          {TOOL_OPTIONS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={styles.toolButton}
+              aria-pressed={tool === id}
+              onClick={() => setTool(id)}
+            >
+              <Icon aria-hidden="true" />
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className={styles.colorGroup} role="group" aria-label="色を選ぶ">
