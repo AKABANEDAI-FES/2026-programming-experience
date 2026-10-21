@@ -1,7 +1,12 @@
-import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { MAX_COMMANDS, type Command, type ReleaseRequest, type ReleaseResponse } from 'shared';
-import { countCommands } from 'shared/release';
+import { countCommands, expandCommands } from 'shared/release';
 import inyaaGuide from '../assets/inyaa-guide.png';
+import {
+  createPreviewMotion,
+  stepPreviewMotion,
+  toPreviewVisual,
+} from '../lib/display/previewMotion';
 import { getReleaseFeedback, type ReleaseState } from '../lib/release-feedback';
 import {
   DEV_RELEASE_TOKEN,
@@ -60,6 +65,66 @@ function BlocklyOverlay({ slotRef, scale, disabled, onCommandsChange }: BlocklyO
       inert={disabled}
     >
       <BlockWorkspace onCommandsChange={onCommandsChange} scale={scale} />
+    </div>
+  );
+}
+
+/** 一度に進める時間の上限。タブを離れて戻ったときに、動きが一気に飛ばないようにする */
+const MAX_PREVIEW_DELTA_MS = 100;
+
+type CreaturePreviewProps = {
+  imageData: string;
+  commands: Command[];
+};
+
+/**
+ * 組んだブロックの順に、かいた絵をその場で動かして見せる（大画面と同じ動きの計算を使う）。
+ * ブロックを変えたら、最初から再生し直す。
+ */
+function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
+  const imageRef = useRef<HTMLImageElement>(null);
+  const bubbleRef = useRef<HTMLParagraphElement>(null);
+  const commandsRef = useRef(expandCommands(commands));
+  const motionRef = useRef(createPreviewMotion());
+
+  useEffect(() => {
+    commandsRef.current = expandCommands(commands);
+    motionRef.current = createPreviewMotion();
+  }, [commands]);
+
+  useEffect(() => {
+    let previous: number | null = null;
+
+    const tick = (now: number) => {
+      const delta = previous === null ? 0 : Math.min(now - previous, MAX_PREVIEW_DELTA_MS);
+      previous = now;
+
+      motionRef.current = stepPreviewMotion(motionRef.current, commandsRef.current, delta);
+      const visual = toPreviewVisual(motionRef.current, commandsRef.current);
+      const image = imageRef.current;
+      const bubble = bubbleRef.current;
+
+      if (image !== null) {
+        image.style.transform = `translate(${visual.offsetX}px, ${visual.offsetY}px) rotate(${visual.rotation}deg) scale(${visual.scale})`;
+      }
+
+      if (bubble !== null) {
+        bubble.hidden = visual.sayText === null;
+        bubble.textContent = visual.sayText;
+      }
+
+      frame = requestAnimationFrame(tick);
+    };
+
+    let frame = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <div className={styles.creatureFrame}>
+      <p ref={bubbleRef} className={styles.previewBubble} hidden />
+      <img ref={imageRef} className={styles.creatureImage} src={imageData} alt="かいた え" />
     </div>
   );
 }
@@ -188,9 +253,7 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
 
       <div className={styles.creatureCard}>
         <p className={styles.cardTitle}>きみの なかま</p>
-        <div className={styles.creatureFrame}>
-          <img className={styles.creatureImage} src={imageData} alt="かいた え" />
-        </div>
+        <CreaturePreview imageData={imageData} commands={commands} />
       </div>
 
       <img className={styles.guideImage} src={inyaaGuide} alt="" />
