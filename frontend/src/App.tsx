@@ -4,6 +4,7 @@ import { DrawingScreen } from './components/DrawingScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { ProgrammingScreen } from './components/ProgrammingScreen';
 import styles from './App.module.css';
+import { installKioskSafety } from './lib/ui/kioskSafety';
 
 type AppStep = 'home' | 'drawing' | 'programming' | 'complete';
 
@@ -11,6 +12,8 @@ type AppStep = 'home' | 'drawing' | 'programming' | 'complete';
 const COMPLETION_SCREEN_DURATION_MS = 5_000;
 
 function App() {
+  useEffect(() => installKioskSafety(window), []);
+
   const [step, setStep] = useState<AppStep>('home');
   const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
