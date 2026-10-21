@@ -13,6 +13,10 @@
 
 .subtitle {
   margin: 0;
+  padding: 12px 32px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 90%);
+  box-shadow: 0 4px 12px rgb(23 48 90 / 12%);
   font-size: 30px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -25,6 +29,9 @@
   font-weight: 800;
   line-height: 1.1;
   color: var(--ink);
+  -webkit-text-stroke: 6px var(--white);
+  paint-order: stroke fill;
+  text-shadow: 0 4px 10px rgb(23 48 90 / 18%);
 }
 
 .guide {
