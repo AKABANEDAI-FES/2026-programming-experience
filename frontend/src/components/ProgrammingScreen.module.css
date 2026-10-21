@@ -20,6 +20,7 @@
 }
 
 .creatureFrame {
+  position: relative;
   height: 247px;
   display: grid;
   place-items: center;
@@ -30,10 +31,32 @@
   background: var(--sea-50);
 }
 
+/* プレビューで動かすので、ジャンプやふくらむでも枠からはみ出さないよう小さめに置く */
 .creatureImage {
-  width: 100%;
-  height: 100%;
+  width: 66%;
+  height: 66%;
   object-fit: contain;
+  will-change: transform;
+}
+
+/* プレビューのセリフ（大画面の吹き出しと同じ形） */
+.previewBubble {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 1;
+  max-width: 90%;
+  margin: 0;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 4px 0 rgb(23 48 90 / 12%);
+  font-size: 24px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
 }
 
 /* 吹き出しをなくした分、カードの下の空いた場所にイニャーを大きめに置く */
