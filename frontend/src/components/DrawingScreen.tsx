@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type CSSProperties,
@@ -503,6 +504,45 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     setCanClear(previousState.hasDrawing);
     setCanUndo(history.current.length > 0);
   };
+
+  const handleUndoKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      event.isComposing ||
+      event.repeat ||
+      !(event.ctrlKey || event.metaKey) ||
+      event.shiftKey ||
+      event.altKey ||
+      event.key.toLowerCase() !== 'z' ||
+      !isReadyToDraw.current ||
+      history.current.length === 0
+    ) {
+      return;
+    }
+
+    // 文字入力欄ではブラウザー本来のUndoを優先する。
+    const target = event.target;
+    if (target instanceof HTMLElement) {
+      const input = target.closest('input');
+      const isTextInput =
+        input !== null &&
+        ['text', 'search', 'email', 'password', 'tel', 'url', 'number'].includes(input.type);
+
+      if (isTextInput || target.isContentEditable || target.closest('textarea, [role="textbox"]')) {
+        return;
+      }
+    }
+
+    event.preventDefault();
+    handleUndo();
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => handleUndoKeyDown(event);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleClear = () => {
     const context = canvasRef.current?.getContext('2d');
