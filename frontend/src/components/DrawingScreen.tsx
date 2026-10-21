@@ -520,13 +520,17 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       return;
     }
 
-    // 入力欄ではブラウザー本来のUndoを優先する。
+    // 文字入力欄ではブラウザー本来のUndoを優先する。
     const target = event.target;
-    if (
-      target instanceof HTMLElement &&
-      (target.isContentEditable || target.closest('input, textarea, [role="textbox"]'))
-    ) {
-      return;
+    if (target instanceof HTMLElement) {
+      const input = target.closest('input');
+      const isTextInput =
+        input !== null &&
+        ['text', 'search', 'email', 'password', 'tel', 'url', 'number'].includes(input.type);
+
+      if (isTextInput || target.isContentEditable || target.closest('textarea, [role="textbox"]')) {
+        return;
+      }
     }
 
     event.preventDefault();
