@@ -3,8 +3,8 @@ import type { DrawMode } from 'shared';
 import { DrawingScreen } from './components/DrawingScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { ProgrammingScreen } from './components/ProgrammingScreen';
-import { preventKioskShortcuts, preventRightClickMenu } from './lib/ui/participantSafety.ts';
 import styles from './App.module.css';
+import { installKioskSafety } from './lib/ui/kioskSafety';
 
 type AppStep = 'home' | 'drawing' | 'programming' | 'complete';
 
@@ -12,6 +12,8 @@ type AppStep = 'home' | 'drawing' | 'programming' | 'complete';
 const COMPLETION_SCREEN_DURATION_MS = 5_000;
 
 function App() {
+  useEffect(() => installKioskSafety(window), []);
+
   const [step, setStep] = useState<AppStep>('home');
   const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
@@ -42,16 +44,6 @@ function App() {
 
     return () => window.clearTimeout(timeoutId);
   }, [step]);
-
-  useEffect(() => {
-    document.addEventListener('contextmenu', preventRightClickMenu);
-    window.addEventListener('keydown', preventKioskShortcuts, true);
-
-    return () => {
-      document.removeEventListener('contextmenu', preventRightClickMenu);
-      window.removeEventListener('keydown', preventKioskShortcuts, true);
-    };
-  }, []);
 
   const renderCurrentScreen = () => {
     if (step === 'home' || drawMode === null) {
