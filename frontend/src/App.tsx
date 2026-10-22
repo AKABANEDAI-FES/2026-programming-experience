@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { DrawMode } from 'shared';
+import { CompleteScreen } from './components/CompleteScreen';
 import { DrawingScreen } from './components/DrawingScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { ProgrammingScreen } from './components/ProgrammingScreen';
@@ -61,13 +62,7 @@ function App() {
     }
 
     if (step === 'complete') {
-      return (
-        <section aria-labelledby="release-complete-title" className={styles.completeScreen}>
-          <p className={styles.completeLabel}>作品を保存しました</p>
-          <h1 id="release-complete-title">保存できたよ！</h1>
-          <p>作品を受け付けました。</p>
-        </section>
-      );
+      return <CompleteScreen imageData={imageData} />;
     }
 
     if (imageData === null) {
