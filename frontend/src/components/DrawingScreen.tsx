@@ -738,8 +738,6 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       </div>
 
       <div className={styles.paper}>
-        {/* 紙をテープで貼ったような飾り */}
-        <span className={styles.tape} aria-hidden="true" />
         <div className={styles.drawingArea}>
           <canvas
             ref={backgroundCanvasRef}

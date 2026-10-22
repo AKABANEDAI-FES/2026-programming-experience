@@ -101,19 +101,6 @@
   height: 768px;
 }
 
-/* 紙をテープで貼ったような飾り */
-.tape {
-  position: absolute;
-  left: 50%;
-  top: -18px;
-  z-index: 1;
-  width: 140px;
-  height: 36px;
-  margin-left: -70px;
-  border-radius: 4px;
-  background: rgb(255 204 51 / 85%);
-}
-
 .drawingArea {
   position: relative;
   width: 100%;
