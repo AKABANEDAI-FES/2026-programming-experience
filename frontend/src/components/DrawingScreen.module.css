@@ -1,296 +1,138 @@
-.screen {
-  width: 100%;
+/* お絵かき画面（デザイン案 2a）。数値は 1920×1080 の舞台での実寸 */
+
+/* 画面の名前は読み上げにだけ使う（見た目は上の進み具合とボタンで伝わる） */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 紙の上：おえかきのしかたの切り替えと、ぬりえの下絵選び */
+.topBar {
+  position: absolute;
+  left: 60px;
+  top: 150px;
+  width: 1280px;
+  height: 80px;
   display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 40px;
-  box-sizing: border-box;
-}
-
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.label {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #316b5f;
-}
-
-.title {
-  margin: 0;
-  font-size: 32px;
-  line-height: 1.2;
-  font-weight: 700;
-}
-
-.description {
-  margin: 0;
-  color: #52635f;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .modeSwitcher {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: min(520px, 100%);
-  padding: 4px;
-  border-radius: 12px;
-  background: #dfece8;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 6px 0 rgb(23 48 90 / 12%);
 }
 
 .modeButton {
-  min-height: 48px;
-  padding: 8px 16px;
+  height: 64px;
+  padding: 0 32px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
-  color: #39504a;
-  font-weight: 700;
+  color: var(--ink);
+  font: inherit;
+  font-size: 32px;
+  font-weight: 800;
   cursor: pointer;
 }
 
+.modeButton:hover:not([aria-pressed='true']) {
+  background: var(--sea-50);
+}
+
 .modeButton[aria-pressed='true'] {
-  background: #fff;
-  color: #176451;
-  box-shadow: 0 2px 6px rgb(20 32 29 / 12%);
+  background: var(--orange);
+  color: var(--white);
 }
 
 .templateSwitcher {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 14px;
 }
 
 .templateButton {
+  height: 72px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 56px;
-  padding: 4px 16px 4px 4px;
-  border: 2px solid #c7d8d2;
-  border-radius: 12px;
-  background: #fff;
-  color: #39504a;
-  font-weight: 700;
+  gap: 12px;
+  padding: 0 24px 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 6px 0 rgb(23 48 90 / 12%);
+  color: var(--ink);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 800;
   cursor: pointer;
 }
 
 .templateButton[aria-pressed='true'] {
-  border-color: #176451;
-  color: #176451;
-  box-shadow: 0 2px 6px rgb(20 32 29 / 12%);
+  box-shadow:
+    0 0 0 5px var(--orange),
+    0 6px 0 5px rgb(23 48 90 / 12%);
 }
 
 .templateThumbnail {
-  width: 80px;
-  height: 48px;
-  border-radius: 8px;
-  background: #fff;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--sea-200);
+  border-radius: 50%;
+  background: var(--white);
+  /* 下絵は横長なので、切り取らずに全体を小さく見せる */
   object-fit: contain;
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 20px;
-  padding: 16px;
-  border: 1px solid #c7d8d2;
-  border-radius: 16px;
-  background: #fff;
+/* 紙（キャンバス）。1000×600 の絵を 1280×768 に広げて表示する */
+.paper {
+  position: absolute;
+  left: 60px;
+  top: 250px;
+  width: 1280px;
+  height: 768px;
 }
 
-.toolGroup,
-.colorGroup,
-.actionGroup {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.paletteGroup,
-.customColorLabel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.paletteGroup {
-  padding: 4px 8px 4px 0;
-  border-right: 1px solid #c7d8d2;
-}
-
-.savedColorGroup {
-  padding: 6px 10px;
-  border: 1px solid #96baae;
-  border-radius: 10px;
-  background: #edf6f2;
-}
-
-.paletteLabel,
-.customColorLabel span {
-  color: #52635f;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.colorOptions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.toolButton,
-.actionButton,
-.clearButton,
-.lineWidthLabel select {
-  min-height: 44px;
-  border: 1px solid #9db4ad;
-  border-radius: 10px;
-  background: #fff;
-  color: #26413a;
-  font-weight: 700;
-}
-
-.toolButton,
-.actionButton,
-.clearButton {
-  padding: 8px 14px;
-  cursor: pointer;
-}
-
-.toolButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-}
-
-.toolButton > svg {
-  width: 1em;
-  height: 1em;
-  flex: none;
-}
-
-.toolButton[aria-pressed='true'] {
-  border-color: #176451;
-  background: #dfece8;
-  color: #176451;
-}
-
-.colorButton {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 3px solid transparent;
-  border-radius: 999px;
-  background: var(--color-swatch);
-  box-shadow: inset 0 0 0 1px rgb(20 32 29 / 25%);
-  cursor: pointer;
-}
-
-.colorButton[aria-pressed='true'] {
-  border-color: #176451;
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 4px #176451;
-}
-
-.customColorLabel {
-  cursor: pointer;
-}
-
-.customColorInput {
-  width: 44px;
-  height: 44px;
-  padding: 2px;
-  border: 3px solid #9db4ad;
-  border-radius: 999px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.customColorInput::-webkit-color-swatch {
-  border: 0;
-  border-radius: 999px;
-}
-
-.customColorInput::-moz-color-swatch {
-  border: 0;
-  border-radius: 999px;
-}
-
-.customColorLabel[data-active='true'] .customColorInput {
-  border-color: #176451;
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 4px #176451;
-}
-
-.colorNotice {
-  flex-basis: 100%;
-  margin: 0;
-  color: #a13a30;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.lineWidthLabel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #26413a;
-  font-weight: 700;
-}
-
-.lineWidthLabel select {
-  padding: 6px 10px;
-}
-
-.clearButton {
-  border-color: #c7685d;
-  color: #a13a30;
-}
-
-.toolbar button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.modeButton:focus-visible,
-.templateButton:focus-visible,
-.toolbar button:focus-visible,
-.customColorInput:focus-visible,
-.lineWidthLabel select:focus-visible {
-  outline: 3px solid #176451;
-  outline-offset: 2px;
+/* 紙をテープで貼ったような飾り */
+.tape {
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  z-index: 1;
+  width: 140px;
+  height: 36px;
+  margin-left: -70px;
+  border-radius: 4px;
+  background: rgb(255 204 51 / 85%);
 }
 
 .drawingArea {
-  flex: 1;
-  min-height: 420px;
-  display: grid;
-  place-items: center;
   position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
   overflow: hidden;
-  border: 2px solid #aebfba;
   border-radius: 16px;
-  background: #ffffff;
-  color: #52635f;
+  background: var(--white);
+  box-shadow: 0 18px 0 rgb(23 48 90 / 18%);
 }
 
 .backgroundCanvas,
 .canvas,
-.highlightCanvas {
+.highlightCanvas,
+.cursorLayer {
   grid-area: 1 / 1;
   display: block;
   width: 100%;
-  height: auto;
-  aspect-ratio: 5 / 3;
+  height: 100%;
   user-select: none;
 }
 
@@ -310,13 +152,8 @@
 }
 
 .cursorLayer {
-  grid-area: 1 / 1;
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 5 / 3;
   position: relative;
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
 }
 
@@ -324,8 +161,8 @@
 .eraserCursor,
 .fillCursor {
   position: absolute;
-  min-width: 2px;
-  min-height: 2px;
+  min-width: 3px;
+  min-height: 3px;
   border-radius: 999px;
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -342,7 +179,7 @@
 }
 
 .fillCursor {
-  border: 2px solid #fff;
+  border: 3px solid var(--white);
   box-shadow: 0 0 0 1px rgb(20 32 29 / 35%);
   background: var(--cursor-color);
 }
@@ -352,26 +189,28 @@
   pointer-events: none;
 }
 
-.fillToast {
+/* ぬりつぶしの案内や、白っぽい色の注意 */
+.toast {
   grid-area: 1 / 1;
   z-index: 4;
   align-self: start;
   justify-self: center;
-  max-width: calc(100% - 32px);
-  margin: 16px;
-  padding: 12px 20px;
-  border: 2px solid #ef4444;
+  max-width: calc(100% - 48px);
+  margin: 24px;
+  padding: 14px 28px;
+  border: 3px solid #ef4444;
   border-radius: 999px;
   background: rgb(255 255 255 / 96%);
-  box-shadow: 0 6px 20px rgb(127 29 29 / 24%);
+  box-shadow: 0 6px 0 rgb(127 29 29 / 18%);
   color: #991b1b;
-  font-weight: 700;
+  font-size: 30px;
+  font-weight: 800;
   pointer-events: none;
   text-align: center;
-  animation: fill-toast-in 160ms ease-out;
+  animation: toast-in 160ms ease-out;
 }
 
-@keyframes fill-toast-in {
+@keyframes toast-in {
   from {
     opacity: 0;
     transform: translateY(-8px);
@@ -383,68 +222,251 @@
   }
 }
 
-.drawingHint {
-  grid-area: 1 / 1;
-  z-index: 3;
-  margin: 0;
-  align-self: end;
-  padding: 12px 18px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 88%);
-  box-shadow: 0 2px 10px rgb(20 32 29 / 10%);
-  pointer-events: none;
-  text-align: center;
+/* 右のパネル：どうぐ・いろ・つくった いろ・ふとさ・もどす／けす */
+.panel {
+  position: absolute;
+  left: 1380px;
+  top: 150px;
+  width: 500px;
+  height: 720px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px;
+  border-radius: 40px;
+  background: var(--white);
+  box-shadow: 0 14px 0 var(--card-shadow);
 }
 
-.nextButton {
-  align-self: flex-end;
-  min-width: 160px;
-  min-height: 52px;
-  padding: 10px 24px;
+.toolGroup {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.toolButton {
+  height: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 0;
-  border-radius: 12px;
-  background: #176451;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
+  border-radius: 24px;
+  background: var(--sea-50);
+  color: var(--ink);
+  font: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.nextButton:hover {
-  background: #104d3e;
+.toolButton > svg {
+  width: 40px;
+  height: 40px;
+  stroke-width: 2.5;
 }
 
+.toolButton:hover:not([aria-pressed='true']) {
+  background: #d6f0fb;
+}
+
+.toolButton[aria-pressed='true'] {
+  background: var(--sea-700);
+  color: var(--white);
+}
+
+/* 用意した 14 色と「じぶんでえらぶ」を 5 列×3 段に並べる */
+.colorGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 64px);
+  justify-content: space-between;
+  row-gap: 14px;
+  padding: 0 6px;
+}
+
+.colorButton {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-swatch);
+  box-shadow: inset 0 0 0 2px rgb(23 48 90 / 15%);
+  cursor: pointer;
+}
+
+.colorButton[aria-pressed='true'],
+.customColorLabel[data-active='true'] {
+  box-shadow:
+    0 0 0 4px var(--white),
+    0 0 0 8px var(--ink);
+}
+
+/* 「じぶんでえらぶ」は、虹色の輪の中に今の色を出して、ほかの色と見分けられるようにする */
+.customColorLabel {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(#ef4444, #eab308, #22c55e, #38bdf8, #8b5cf6, #ec4899, #ef4444);
+  cursor: pointer;
+}
+
+.customColorInput {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 3px solid var(--white);
+  border-radius: 50%;
+  background: var(--white);
+  cursor: pointer;
+}
+
+.customColorInput::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.customColorInput::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+.customColorInput::-moz-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+/* つくった色は、点線で区切って下に小さめに並べる */
+.savedColors {
+  display: flex;
+  gap: 14px;
+  padding: 14px 6px 0;
+  border-top: 3px dotted var(--sea-200);
+}
+
+.savedColorButton {
+  width: 48px;
+  height: 48px;
+}
+
+.widthGroup {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.widthButton {
+  height: 84px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: var(--sea-50);
+  cursor: pointer;
+}
+
+.widthButton[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 4px var(--sea-700);
+}
+
+.widthDot {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(23 48 90 / 15%);
+}
+
+.actionGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.actionButton {
+  height: 84px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sea-50);
+  box-shadow: 0 6px 0 #9ec3de;
+  color: var(--sea-700);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.actionButton:hover:not(:disabled) {
+  background: #d6f0fb;
+}
+
+.actionButton:active:not(:disabled) {
+  transform: translateY(6px);
+  box-shadow: none;
+}
+
+.actionButton:disabled {
+  box-shadow: none;
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nextButton {
+  position: absolute;
+  left: 1380px;
+  top: 892px;
+  width: 500px;
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--yellow);
+  box-shadow: 0 10px 0 var(--yellow-shadow);
+  color: var(--ink);
+  font: inherit;
+  font-size: 52px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+.nextButton span {
+  font-size: 48px;
+}
+
+.nextButton:hover {
+  background: var(--yellow-hover);
+}
+
+/* 押すとボタンが沈む */
+.nextButton:active {
+  transform: translateY(10px);
+  box-shadow: none;
+}
+
+.modeButton:focus-visible,
+.templateButton:focus-visible,
+.toolButton:focus-visible,
+.colorButton:focus-visible,
+.customColorInput:focus-visible,
+.widthButton:focus-visible,
+.actionButton:focus-visible,
 .nextButton:focus-visible {
-  outline: 3px solid #176451;
-  outline-offset: 2px;
+  outline: 6px solid var(--sea-700);
+  outline-offset: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fillToast {
+  .toast {
     animation: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .screen {
-    padding: 24px 16px;
-  }
-
-  .title {
-    font-size: 28px;
-  }
-
-  .modeSwitcher {
-    width: 100%;
-  }
-
-  .modeButton {
-    padding: 8px;
-    font-size: 14px;
-  }
-
-  .toolbar {
-    gap: 12px;
-    padding: 12px;
   }
 }

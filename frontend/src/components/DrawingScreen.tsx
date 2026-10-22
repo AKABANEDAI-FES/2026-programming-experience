@@ -22,6 +22,8 @@ import { MAX_CUSTOM_COLORS, rememberCustomColor } from '../lib/paint/customColor
 import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
 import styles from './DrawingScreen.module.css';
+import { StageScreen } from './StageScreen';
+import { StepIndicator } from './StepIndicator';
 
 const TOOL_OPTIONS = [
   { id: 'pen', label: 'ペン', Icon: PenLine },
@@ -60,49 +62,43 @@ const FILL_FEEDBACK_DURATION_MS = 3000;
 const UNFILLABLE_MESSAGE = 'この範囲は塗りつぶせないよ。線で囲んでみよう！';
 const FILL_ERROR_MESSAGE = 'うまく塗りつぶせなかったよ。もう一度試してね。';
 const HIGHLIGHT_COLOR: Rgba = { r: 239, g: 68, b: 68, a: 104 };
-const FILL_CURSOR_DIAMETER = 18;
+/** ぬりつぶしのカーソルの大きさ（舞台の実寸） */
+const FILL_CURSOR_DIAMETER = 24;
 
-const COLOR_GROUPS = [
-  {
-    label: 'あたたかい色',
-    colors: [
-      { value: '#ef4444', label: 'あか' },
-      { value: '#f59e0b', label: 'オレンジ' },
-      { value: '#eab308', label: 'きいろ' },
-      { value: '#ec4899', label: 'ピンク' },
-      { value: '#f2a879', label: 'はだいろ' },
-      { value: '#92400e', label: 'ちゃいろ' },
-    ],
-  },
-  {
-    label: 'つめたい色',
-    colors: [
-      { value: '#84cc16', label: 'きみどり' },
-      { value: '#22c55e', label: 'みどり' },
-      { value: '#38bdf8', label: 'みずいろ' },
-      { value: '#3b82f6', label: 'あお' },
-      { value: '#1e3a8a', label: 'こん' },
-      { value: '#8b5cf6', label: 'むらさき' },
-    ],
-  },
-  {
-    label: 'そのほかの色',
-    colors: [
-      { value: '#1f2937', label: 'くろ' },
-      { value: '#6b7280', label: 'はいいろ' },
-    ],
-  },
+/**
+ * 用意した色。右のパネルに 5 列で並べ、似た色が隣どうしになる順にする
+ * （1 段目：あたたかい色、2 段目：つめたい色、3 段目：みどりと黒・灰色。最後のマスは「じぶんでえらぶ」）
+ */
+const PRESET_COLOR_OPTIONS = [
+  { value: '#ef4444', label: 'あか' },
+  { value: '#f59e0b', label: 'オレンジ' },
+  { value: '#eab308', label: 'きいろ' },
+  { value: '#f2a879', label: 'はだいろ' },
+  { value: '#92400e', label: 'ちゃいろ' },
+  { value: '#ec4899', label: 'ピンク' },
+  { value: '#8b5cf6', label: 'むらさき' },
+  { value: '#1e3a8a', label: 'こん' },
+  { value: '#3b82f6', label: 'あお' },
+  { value: '#38bdf8', label: 'みずいろ' },
+  { value: '#84cc16', label: 'きみどり' },
+  { value: '#22c55e', label: 'みどり' },
+  { value: '#6b7280', label: 'はいいろ' },
+  { value: '#1f2937', label: 'くろ' },
 ] as const;
 
 const DEFAULT_COLOR = '#1f2937';
-const PRESET_COLORS = new Set<string>(
-  COLOR_GROUPS.flatMap((group) => group.colors.map(({ value }) => value)),
-);
+const PRESET_COLORS = new Set<string>(PRESET_COLOR_OPTIONS.map(({ value }) => value));
 // カラーピッカー操作中に続けて届く中間色を保存しないための待ち時間。
 const CUSTOM_COLOR_SAVE_DELAY_MS = 300;
-const NEAR_WHITE_MESSAGE = '白に近い色は大画面で消えることがあるので、別の色を選んでね。';
+const NEAR_WHITE_MESSAGE = 'しろっぽい いろは つかえないよ。べつの いろを えらんでね';
 
-const LINE_WIDTHS = [4, 8, 16, 24] as const;
+/** 線の太さ。ボタンには太さの違いがひと目でわかる大きさの丸を出す（dot は舞台の実寸） */
+const LINE_WIDTH_OPTIONS = [
+  { width: 4, label: 'ほそい', dot: 12 },
+  { width: 8, label: 'ふつう', dot: 20 },
+  { width: 16, label: 'ふとい', dot: 32 },
+  { width: 24, label: 'いちばん ふとい', dot: 44 },
+] as const;
 
 const toRgba = (hex: string): Rgba => {
   const value = hex.slice(1);
@@ -138,7 +134,7 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const [savedColors, setSavedColors] = useState<string[]>([]);
   const [colorSource, setColorSource] = useState<'preset' | 'custom' | 'saved'>('preset');
   const [colorNotice, setColorNotice] = useState<string | null>(null);
-  const [lineWidth, setLineWidth] = useState<number>(LINE_WIDTHS[1]);
+  const [lineWidth, setLineWidth] = useState<number>(LINE_WIDTH_OPTIONS[1].width);
   const [canUndo, setCanUndo] = useState(false);
   const [canClear, setCanClear] = useState(false);
   const [fillFeedback, setFillFeedback] = useState<FillFeedback | null>(null);
@@ -238,6 +234,17 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     return () => window.clearTimeout(timeoutId);
   }, [fillFeedback, clearFillFeedback]);
 
+  // 白っぽい色の注意も、ぬりつぶしの案内と同じように少したったら消す
+  useEffect(() => {
+    if (colorNotice === null) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setColorNotice(null), FILL_FEEDBACK_DURATION_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [colorNotice]);
+
   useEffect(() => {
     const backgroundCanvas = backgroundCanvasRef.current;
     const canvas = canvasRef.current;
@@ -321,7 +328,8 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const updateCursorIndicatorAt = useCallback(
     (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
       const bounds = canvas.getBoundingClientRect();
-      const scale = bounds.width / DRAWING_WIDTH;
+      // カーソルは縮めた舞台の中に描くので、画面上の大きさではなく舞台の実寸（offsetWidth）で合わせる
+      const scale = canvas.offsetWidth / DRAWING_WIDTH;
 
       const pointerX = clientX - bounds.left;
       const diameter = tool === 'fill' ? FILL_CURSOR_DIAMETER : lineWidth * scale;
@@ -653,49 +661,155 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     onDrawingComplete(compositeCanvas.toDataURL('image/png'));
   };
 
+  const selectColor = (nextColor: string, source: 'preset' | 'saved') => {
+    if (source === 'saved') {
+      setCustomColor(nextColor);
+    }
+
+    setColor(nextColor);
+    setColorSource(source);
+    setColorNotice(null);
+  };
+
+  const handleCustomColorChange = (nextColor: string) => {
+    if (isNearWhite(nextColor)) {
+      setColorNotice(NEAR_WHITE_MESSAGE);
+      return;
+    }
+
+    setCustomColor(nextColor);
+    setColor(nextColor);
+    setColorSource(PRESET_COLORS.has(nextColor) ? 'preset' : 'custom');
+
+    if (customColorSaveTimeout.current !== null) {
+      window.clearTimeout(customColorSaveTimeout.current);
+      customColorSaveTimeout.current = null;
+    }
+
+    if (!PRESET_COLORS.has(nextColor)) {
+      customColorSaveTimeout.current = window.setTimeout(
+        () => saveCustomColor(nextColor),
+        CUSTOM_COLOR_SAVE_DELAY_MS,
+      );
+    }
+
+    setColorNotice(null);
+  };
+
   return (
-    <section className={styles.screen} aria-labelledby="drawing-title">
-      <div className={styles.header}>
-        <p className={styles.label}>おえかきモード</p>
-        <h1 id="drawing-title" className={styles.title}>
-          {copy.label}
-        </h1>
-        <p className={styles.description}>{copy.drawingDescription}</p>
-      </div>
+    <StageScreen labelledBy="drawing-title">
+      <h1 id="drawing-title" className={styles.visuallyHidden}>
+        {copy.label}
+      </h1>
 
-      <div className={styles.modeSwitcher} role="group" aria-label="おえかきモードを切り替える">
-        {DRAW_MODES.map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={styles.modeButton}
-            aria-pressed={mode === option}
-            onClick={() => handleModeChange(option)}
-          >
-            {DRAW_MODE_COPY[option].label}
-          </button>
-        ))}
-      </div>
+      <StepIndicator current={1} />
 
-      {mode === 'coloring' && (
-        <div className={styles.templateSwitcher} role="group" aria-label="ぬりえを えらぶ">
-          {COLORING_TEMPLATES.map((template) => (
+      <div className={styles.topBar}>
+        <div className={styles.modeSwitcher} role="group" aria-label="おえかきの しかたを えらぶ">
+          {DRAW_MODES.map((option) => (
             <button
-              key={template.id}
+              key={option}
               type="button"
-              className={styles.templateButton}
-              aria-pressed={templateId === template.id}
-              onClick={() => handleTemplateChange(template.id)}
+              className={styles.modeButton}
+              aria-pressed={mode === option}
+              onClick={() => handleModeChange(option)}
             >
-              <img className={styles.templateThumbnail} src={template.src} alt="" />
-              {template.label}
+              {DRAW_MODE_COPY[option].homeLabel}
             </button>
           ))}
         </div>
-      )}
 
-      <div className={styles.toolbar} aria-label="おえかきのどうぐ">
-        <div className={styles.toolGroup} role="group" aria-label="どうぐを選ぶ">
+        {mode === 'coloring' && (
+          <div className={styles.templateSwitcher} role="group" aria-label="ぬりえを えらぶ">
+            {COLORING_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className={styles.templateButton}
+                aria-pressed={templateId === template.id}
+                onClick={() => handleTemplateChange(template.id)}
+              >
+                <img className={styles.templateThumbnail} src={template.src} alt="" />
+                {template.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className={styles.paper}>
+        {/* 紙をテープで貼ったような飾り */}
+        <span className={styles.tape} aria-hidden="true" />
+        <div className={styles.drawingArea}>
+          <canvas
+            ref={backgroundCanvasRef}
+            className={styles.backgroundCanvas}
+            width={DRAWING_WIDTH}
+            height={DRAWING_HEIGHT}
+            aria-hidden="true"
+          />
+          <canvas
+            ref={canvasRef}
+            className={`${styles.canvas} ${styles.canvasNoCursor}`}
+            width={DRAWING_WIDTH}
+            height={DRAWING_HEIGHT}
+            role="img"
+            aria-label={`${copy.label}の描画エリア`}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerEnter={updateCursorIndicator}
+            onPointerLeave={() => {
+              lastPointerClient.current = null;
+              setCursorIndicator(null);
+            }}
+            onPointerUp={finishStroke}
+            onPointerCancel={finishStroke}
+          />
+          <canvas
+            ref={highlightCanvasRef}
+            className={styles.highlightCanvas}
+            width={DRAWING_WIDTH}
+            height={DRAWING_HEIGHT}
+            aria-hidden="true"
+          />
+          <div className={styles.cursorLayer} aria-hidden="true">
+            {cursorIndicator !== null && (
+              <div
+                className={
+                  tool === 'eraser'
+                    ? styles.eraserCursor
+                    : tool === 'fill'
+                      ? styles.fillCursor
+                      : styles.penCursor
+                }
+                style={
+                  {
+                    left: `${cursorIndicator.leftPercent}%`,
+                    top: `${cursorIndicator.topPercent}%`,
+                    width: `${cursorIndicator.diameter}px`,
+                    height: `${cursorIndicator.diameter}px`,
+                    '--cursor-color': color,
+                  } as CSSProperties
+                }
+              />
+            )}
+          </div>
+          {fillFeedback !== null && (
+            <div key={fillFeedback.id} className={styles.toast} role="status" aria-live="polite">
+              {fillFeedback.message}
+            </div>
+          )}
+          {fillFeedback === null && colorNotice !== null && (
+            <div className={styles.toast} role="status" aria-live="polite">
+              {colorNotice}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 道具は右のパネルに縦に並べる。見出しは置かず、アイコン・色の丸・太さの丸で伝える */}
+      <div className={styles.panel} aria-label="おえかきの どうぐ">
+        <div className={styles.toolGroup} role="group" aria-label="どうぐを えらぶ">
           {TOOL_OPTIONS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -710,114 +824,78 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
           ))}
         </div>
 
-        <div className={styles.colorGroup} role="group" aria-label="色を選ぶ">
-          {COLOR_GROUPS.map((group) => (
-            <div
-              key={group.label}
-              className={styles.paletteGroup}
-              role="group"
-              aria-label={group.label}
-            >
-              <span className={styles.paletteLabel}>{group.label}</span>
-              <div className={styles.colorOptions}>
-                {group.colors.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={styles.colorButton}
-                    style={{ '--color-swatch': option.value } as CSSProperties}
-                    aria-label={`${option.label}を選ぶ`}
-                    aria-pressed={colorSource === 'preset' && color === option.value}
-                    onClick={() => {
-                      setColor(option.value);
-                      setColorSource('preset');
-                      setColorNotice(null);
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
+        <div className={styles.colorGrid} role="group" aria-label="いろを えらぶ">
+          {PRESET_COLOR_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={styles.colorButton}
+              style={{ '--color-swatch': option.value } as CSSProperties}
+              aria-label={`${option.label}を えらぶ`}
+              title={option.label}
+              aria-pressed={colorSource === 'preset' && color === option.value}
+              onClick={() => selectColor(option.value, 'preset')}
+            />
           ))}
-          {savedColors.length > 0 && (
-            <div
-              className={`${styles.paletteGroup} ${styles.savedColorGroup}`}
-              role="group"
-              aria-label="つくった色"
-            >
-              <span className={styles.paletteLabel}>つくった色（{MAX_CUSTOM_COLORS}色まで）</span>
-              <div className={styles.colorOptions}>
-                {savedColors.map((savedColor, index) => (
-                  <button
-                    key={savedColor}
-                    type="button"
-                    className={styles.colorButton}
-                    style={{ '--color-swatch': savedColor } as CSSProperties}
-                    aria-label={`つくった色${index + 1}を選ぶ`}
-                    aria-pressed={colorSource === 'saved' && color === savedColor}
-                    title={savedColor}
-                    onClick={() => {
-                      setCustomColor(savedColor);
-                      setColor(savedColor);
-                      setColorSource('saved');
-                      setColorNotice(null);
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-          <label className={styles.customColorLabel} data-active={colorSource === 'custom'}>
-            <span>じぶんでえらぶ</span>
+          <label
+            className={styles.customColorLabel}
+            data-active={colorSource === 'custom'}
+            title="じぶんで えらぶ"
+          >
             <input
               className={styles.customColorInput}
               type="color"
               value={customColor}
-              aria-label="じぶんで色をえらぶ"
+              aria-label="じぶんで いろを えらぶ"
               onBlur={() => {
                 if (customColorSaveTimeout.current !== null) {
                   saveCustomColor(customColor);
                 }
               }}
-              onChange={(event) => {
-                const nextColor = event.target.value;
-                if (isNearWhite(nextColor)) {
-                  setColorNotice(NEAR_WHITE_MESSAGE);
-                  return;
-                }
-                setCustomColor(nextColor);
-                setColor(nextColor);
-                setColorSource(PRESET_COLORS.has(nextColor) ? 'preset' : 'custom');
-                if (customColorSaveTimeout.current !== null) {
-                  window.clearTimeout(customColorSaveTimeout.current);
-                  customColorSaveTimeout.current = null;
-                }
-                if (!PRESET_COLORS.has(nextColor)) {
-                  customColorSaveTimeout.current = window.setTimeout(
-                    () => saveCustomColor(nextColor),
-                    CUSTOM_COLOR_SAVE_DELAY_MS,
-                  );
-                }
-                setColorNotice(null);
-              }}
+              onChange={(event) => handleCustomColorChange(event.target.value)}
             />
           </label>
         </div>
-        {colorNotice !== null && (
-          <p className={styles.colorNotice} role="status">
-            {colorNotice}
-          </p>
+
+        {/* 「じぶんでえらぶ」でつくった色。1 色もないときは段ごと出さない */}
+        {savedColors.length > 0 && (
+          <div
+            className={styles.savedColors}
+            role="group"
+            aria-label={`つくった いろ（${MAX_CUSTOM_COLORS}いろまで）`}
+          >
+            {savedColors.map((savedColor, index) => (
+              <button
+                key={savedColor}
+                type="button"
+                className={`${styles.colorButton} ${styles.savedColorButton}`}
+                style={{ '--color-swatch': savedColor } as CSSProperties}
+                aria-label={`つくった いろ ${index + 1}を えらぶ`}
+                aria-pressed={colorSource === 'saved' && color === savedColor}
+                onClick={() => selectColor(savedColor, 'saved')}
+              />
+            ))}
+          </div>
         )}
 
-        <label className={styles.lineWidthLabel}>
-          太さ
-          <select value={lineWidth} onChange={(event) => setLineWidth(Number(event.target.value))}>
-            {LINE_WIDTHS.map((width) => (
-              <option key={width} value={width}>
-                {width}px
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className={styles.widthGroup} role="group" aria-label="せんの ふとさを えらぶ">
+          {LINE_WIDTH_OPTIONS.map((option) => (
+            <button
+              key={option.width}
+              type="button"
+              className={styles.widthButton}
+              aria-label={option.label}
+              title={option.label}
+              aria-pressed={lineWidth === option.width}
+              onClick={() => setLineWidth(option.width)}
+            >
+              <span
+                className={styles.widthDot}
+                style={{ width: option.dot, height: option.dot, background: color }}
+              />
+            </button>
+          ))}
+        </div>
 
         <div className={styles.actionGroup}>
           <button
@@ -826,86 +904,23 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
             disabled={!canUndo}
             onClick={handleUndo}
           >
-            ひとつ戻す
+            ひとつ もどす
           </button>
           <button
             type="button"
-            className={styles.clearButton}
+            className={styles.actionButton}
             disabled={!canClear}
             onClick={handleClear}
           >
-            全部消す
+            ぜんぶ けす
           </button>
         </div>
       </div>
 
-      <div className={styles.drawingArea}>
-        <canvas
-          ref={backgroundCanvasRef}
-          className={styles.backgroundCanvas}
-          width={DRAWING_WIDTH}
-          height={DRAWING_HEIGHT}
-          aria-hidden="true"
-        />
-        <canvas
-          ref={canvasRef}
-          className={`${styles.canvas} ${styles.canvasNoCursor}`}
-          width={DRAWING_WIDTH}
-          height={DRAWING_HEIGHT}
-          role="img"
-          aria-label={`${copy.label}の描画エリア`}
-          aria-describedby="drawing-instructions"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerEnter={updateCursorIndicator}
-          onPointerLeave={() => {
-            lastPointerClient.current = null;
-            setCursorIndicator(null);
-          }}
-          onPointerUp={finishStroke}
-          onPointerCancel={finishStroke}
-        />
-        <canvas
-          ref={highlightCanvasRef}
-          className={styles.highlightCanvas}
-          width={DRAWING_WIDTH}
-          height={DRAWING_HEIGHT}
-          aria-hidden="true"
-        />
-        <div className={styles.cursorLayer} aria-hidden="true">
-          {cursorIndicator !== null && (
-            <div
-              className={
-                tool === 'eraser'
-                  ? styles.eraserCursor
-                  : tool === 'fill'
-                    ? styles.fillCursor
-                    : styles.penCursor
-              }
-              style={
-                {
-                  left: `${cursorIndicator.leftPercent}%`,
-                  top: `${cursorIndicator.topPercent}%`,
-                  width: `${cursorIndicator.diameter}px`,
-                  height: `${cursorIndicator.diameter}px`,
-                  '--cursor-color': color,
-                } as CSSProperties
-              }
-            />
-          )}
-        </div>
-        {fillFeedback !== null && (
-          <div key={fillFeedback.id} className={styles.fillToast} role="status" aria-live="polite">
-            {fillFeedback.message}
-          </div>
-        )}
-        <p id="drawing-instructions" className={styles.drawingHint}>
-          {copy.drawingHint}
-        </p>
-      </div>
       <button type="button" className={styles.nextButton} onClick={handleNext}>
-        次へ
+        つぎへ
+        <span aria-hidden="true">›</span>
       </button>
-    </section>
+    </StageScreen>
   );
 }
