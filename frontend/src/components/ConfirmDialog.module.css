@@ -1,0 +1,121 @@
+/* 子ども向けの確認。数値は 1920×1080 の舞台での実寸で、表示するときに舞台と同じ倍率に縮める */
+.dialog {
+  width: 900px;
+  max-width: none;
+  max-height: none;
+  box-sizing: border-box;
+  padding: 48px 56px;
+  border: 0;
+  border-radius: 40px;
+  background: var(--white);
+  box-shadow: 0 14px 0 var(--card-shadow);
+  color: var(--ink);
+  font-family: var(--font-rounded);
+  text-align: center;
+  /* 画面の真ん中を基準に縮める */
+  transform-origin: center;
+}
+
+.dialog::backdrop {
+  background: rgb(23 48 90 / 55%);
+}
+
+.preview {
+  width: 500px;
+  height: 300px;
+  margin: 0 auto 32px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #d7e6ee;
+  border-radius: 16px;
+  /* 外側が透明な作品でも、形がわかるように薄い水色を敷く */
+  background: var(--sea-50);
+}
+
+.previewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.message {
+  margin: 0;
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.detail {
+  margin: 12px 0 0;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--sea-700);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 40px;
+}
+
+.actions[data-single='true'] {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.cancelButton,
+.confirmButton {
+  height: 112px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 44px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* 戻るボタンは控えめな色にする */
+.cancelButton {
+  min-width: 380px;
+  background: var(--sea-50);
+  box-shadow: 0 8px 0 #9ec3de;
+  color: var(--sea-700);
+}
+
+.cancelButton:hover {
+  background: #d6f0fb;
+}
+
+/* 進むボタンは目立つ色にする（ほかの画面の「つぎへ」「うみに はなす」とそろえる） */
+.confirmButton {
+  background: var(--orange);
+  box-shadow: 0 8px 0 var(--orange-shadow);
+  color: var(--white);
+}
+
+.confirmButton:hover {
+  background: var(--orange-hover);
+}
+
+.confirmButton[data-tone='danger'] {
+  background: #e5383b;
+  box-shadow: 0 8px 0 #a3161f;
+}
+
+.confirmButton[data-tone='danger']:hover {
+  background: #ef5a5c;
+}
+
+/* 押すとボタンが沈む */
+.cancelButton:active,
+.confirmButton:active {
+  transform: translateY(8px);
+  box-shadow: none;
+}
+
+.cancelButton:focus-visible,
+.confirmButton:focus-visible {
+  outline: 6px solid var(--sea-700);
+  outline-offset: 4px;
+}

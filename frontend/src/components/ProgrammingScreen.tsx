@@ -20,6 +20,7 @@ import { BlockWorkspace } from './BlockWorkspace';
 import styles from './ProgrammingScreen.module.css';
 import { StageScreen } from './StageScreen';
 import { StepIndicator } from './StepIndicator';
+import { ConfirmDialog } from './ConfirmDialog';
 
 type ProgrammingScreenProps = {
   imageData: string;
@@ -140,6 +141,7 @@ function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
 export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingScreenProps) {
   const [commands, setCommands] = useState<Command[]>([]);
   const [releaseState, setReleaseState] = useState<ReleaseState>('idle');
+  const [isConfirmingRelease, setIsConfirmingRelease] = useState(false);
   const attemptRef = useRef<SubmissionAttempt | null>(null);
   const requestInFlightRef = useRef(false);
   const blocklySlotRef = useRef<HTMLDivElement>(null);
@@ -320,11 +322,26 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
       <button
         type="button"
         className={styles.releaseButton}
-        onClick={handleRelease}
+        // 大画面に出ると取り消せないので、最初に押したときは確かめる（送り直すときは確かめない）
+        onClick={releaseState === 'idle' ? () => setIsConfirmingRelease(true) : handleRelease}
         disabled={feedback.buttonDisabled}
       >
         {feedback.buttonLabel}
       </button>
+
+      <ConfirmDialog
+        open={isConfirmingRelease}
+        message="うみに はなして いい？"
+        detail="もう なおせないよ"
+        imageSrc={imageData}
+        cancelLabel="まだ なおす"
+        onCancel={() => setIsConfirmingRelease(false)}
+        confirmLabel="はなす！"
+        onConfirm={() => {
+          setIsConfirmingRelease(false);
+          void handleRelease();
+        }}
+      />
     </StageScreen>
   );
 }
