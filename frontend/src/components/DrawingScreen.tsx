@@ -18,6 +18,7 @@ import { DRAW_MODES, DRAW_MODE_COPY } from '../constants/drawModes';
 import { applyFillToEditingLayer } from '../lib/paint/applyFillToEditingLayer';
 import { clearOuterBackground } from '../lib/paint/clearOuterBackground';
 import { createChangedPixelMask } from '../lib/paint/createChangedPixelMask';
+import { MAX_CUSTOM_COLORS, rememberCustomColor } from '../lib/paint/customColorHistory';
 import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
 import styles from './DrawingScreen.module.css';
@@ -94,6 +95,11 @@ const COLOR_GROUPS = [
 ] as const;
 
 const DEFAULT_COLOR = '#1f2937';
+const PRESET_COLORS = new Set<string>(
+  COLOR_GROUPS.flatMap((group) => group.colors.map(({ value }) => value)),
+);
+// カラーピッカー操作中に続けて届く中間色を保存しないための待ち時間。
+const CUSTOM_COLOR_SAVE_DELAY_MS = 300;
 const NEAR_WHITE_MESSAGE = '白に近い色は大画面で消えることがあるので、別の色を選んでね。';
 
 const LINE_WIDTHS = [4, 8, 16, 24] as const;
@@ -124,11 +130,13 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const isReadyToDraw = useRef(false);
   const hasDrawing = useRef(false);
   const history = useRef<DrawingHistoryEntry[]>([]);
+  const customColorSaveTimeout = useRef<number | null>(null);
   const nextFillFeedbackId = useRef(0);
   const [tool, setTool] = useState<Tool>('pen');
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [customColor, setCustomColor] = useState<string>(DEFAULT_COLOR);
-  const [colorSource, setColorSource] = useState<'preset' | 'custom'>('preset');
+  const [savedColors, setSavedColors] = useState<string[]>([]);
+  const [colorSource, setColorSource] = useState<'preset' | 'custom' | 'saved'>('preset');
   const [colorNotice, setColorNotice] = useState<string | null>(null);
   const [lineWidth, setLineWidth] = useState<number>(LINE_WIDTHS[1]);
   const [canUndo, setCanUndo] = useState(false);
@@ -139,6 +147,24 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const copy = DRAW_MODE_COPY[mode];
   const templateSrc =
     COLORING_TEMPLATES.find(({ id }) => id === templateId)?.src ?? COLORING_TEMPLATES[0].src;
+
+  useEffect(
+    () => () => {
+      if (customColorSaveTimeout.current !== null) {
+        window.clearTimeout(customColorSaveTimeout.current);
+      }
+    },
+    [],
+  );
+
+  const saveCustomColor = (nextColor: string) => {
+    if (customColorSaveTimeout.current !== null) {
+      window.clearTimeout(customColorSaveTimeout.current);
+    }
+
+    customColorSaveTimeout.current = null;
+    setSavedColors((colors) => rememberCustomColor(colors, nextColor, PRESET_COLORS));
+  };
 
   const cancelActiveStroke = () => {
     const pointerId = activePointerId.current;
@@ -712,6 +738,34 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
               </div>
             </div>
           ))}
+          {savedColors.length > 0 && (
+            <div
+              className={`${styles.paletteGroup} ${styles.savedColorGroup}`}
+              role="group"
+              aria-label="つくった色"
+            >
+              <span className={styles.paletteLabel}>つくった色（{MAX_CUSTOM_COLORS}色まで）</span>
+              <div className={styles.colorOptions}>
+                {savedColors.map((savedColor, index) => (
+                  <button
+                    key={savedColor}
+                    type="button"
+                    className={styles.colorButton}
+                    style={{ '--color-swatch': savedColor } as CSSProperties}
+                    aria-label={`つくった色${index + 1}を選ぶ`}
+                    aria-pressed={colorSource === 'saved' && color === savedColor}
+                    title={savedColor}
+                    onClick={() => {
+                      setCustomColor(savedColor);
+                      setColor(savedColor);
+                      setColorSource('saved');
+                      setColorNotice(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           <label className={styles.customColorLabel} data-active={colorSource === 'custom'}>
             <span>じぶんでえらぶ</span>
             <input
@@ -719,6 +773,11 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
               type="color"
               value={customColor}
               aria-label="じぶんで色をえらぶ"
+              onBlur={() => {
+                if (customColorSaveTimeout.current !== null) {
+                  saveCustomColor(customColor);
+                }
+              }}
               onChange={(event) => {
                 const nextColor = event.target.value;
                 if (isNearWhite(nextColor)) {
@@ -727,7 +786,17 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
                 }
                 setCustomColor(nextColor);
                 setColor(nextColor);
-                setColorSource('custom');
+                setColorSource(PRESET_COLORS.has(nextColor) ? 'preset' : 'custom');
+                if (customColorSaveTimeout.current !== null) {
+                  window.clearTimeout(customColorSaveTimeout.current);
+                  customColorSaveTimeout.current = null;
+                }
+                if (!PRESET_COLORS.has(nextColor)) {
+                  customColorSaveTimeout.current = window.setTimeout(
+                    () => saveCustomColor(nextColor),
+                    CUSTOM_COLOR_SAVE_DELAY_MS,
+                  );
+                }
                 setColorNotice(null);
               }}
             />
