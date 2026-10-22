@@ -118,9 +118,3 @@
   );
   will-change: transform, opacity;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .creature {
-    animation: none;
-  }
-}

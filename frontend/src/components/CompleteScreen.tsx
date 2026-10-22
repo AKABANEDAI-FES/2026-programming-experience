@@ -28,11 +28,7 @@ export function CompleteScreen({ imageData }: CompleteScreenProps) {
     const layer = bubbleLayerRef.current;
     const image = imageRef.current;
 
-    if (
-      layer === null ||
-      image === null ||
-      matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
+    if (layer === null || image === null) {
       return;
     }
 
