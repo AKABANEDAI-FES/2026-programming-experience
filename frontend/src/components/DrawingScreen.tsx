@@ -4,6 +4,7 @@ import {
   useEffectEvent,
   useRef,
   useState,
+  type ComponentProps,
   type CSSProperties,
   type PointerEvent,
 } from 'react';
@@ -19,8 +20,10 @@ import { applyFillToEditingLayer } from '../lib/paint/applyFillToEditingLayer';
 import { clearOuterBackground } from '../lib/paint/clearOuterBackground';
 import { createChangedPixelMask } from '../lib/paint/createChangedPixelMask';
 import { MAX_CUSTOM_COLORS, rememberCustomColor } from '../lib/paint/customColorHistory';
+import { findVisibleArtworkBounds } from '../lib/display/visibleArtworkBounds';
 import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
+import { ConfirmDialog } from './ConfirmDialog';
 import styles from './DrawingScreen.module.css';
 import { StageScreen } from './StageScreen';
 import { StepIndicator } from './StepIndicator';
@@ -49,6 +52,13 @@ type FillFeedback = {
   message: string;
 };
 
+/** 出している確認（なにを確かめているか） */
+type DrawingDialog =
+  | { kind: 'next'; imageSrc: string }
+  | { kind: 'blank' }
+  | { kind: 'clear' }
+  | { kind: 'template'; templateId: ColoringTemplateId };
+
 type CursorIndicator = {
   leftPercent: number;
   topPercent: number;
@@ -59,8 +69,8 @@ const DRAWING_WIDTH = 1000;
 const DRAWING_HEIGHT = 600;
 const MAX_HISTORY_ENTRIES = 10;
 const FILL_FEEDBACK_DURATION_MS = 3000;
-const UNFILLABLE_MESSAGE = 'この範囲は塗りつぶせないよ。線で囲んでみよう！';
-const FILL_ERROR_MESSAGE = 'うまく塗りつぶせなかったよ。もう一度試してね。';
+const UNFILLABLE_MESSAGE = 'ここは ぬれないよ。せんで かこんでから ぬってみよう！';
+const FILL_ERROR_MESSAGE = 'うまく ぬれなかったよ。もう いちど ためしてね';
 const HIGHLIGHT_COLOR: Rgba = { r: 239, g: 68, b: 68, a: 104 };
 /** ぬりつぶしのカーソルの大きさ（舞台の実寸） */
 const FILL_CURSOR_DIAMETER = 24;
@@ -140,6 +150,7 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   const [fillFeedback, setFillFeedback] = useState<FillFeedback | null>(null);
   const [cursorIndicator, setCursorIndicator] = useState<CursorIndicator | null>(null);
   const [templateId, setTemplateId] = useState<ColoringTemplateId>(DEFAULT_COLORING_TEMPLATE_ID);
+  const [dialog, setDialog] = useState<DrawingDialog | null>(null);
   const copy = DRAW_MODE_COPY[mode];
   const templateSrc =
     COLORING_TEMPLATES.find(({ id }) => id === templateId)?.src ?? COLORING_TEMPLATES[0].src;
@@ -579,13 +590,15 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   }, []);
 
   const handleClear = () => {
+    if (hasDrawing.current) {
+      setDialog({ kind: 'clear' });
+    }
+  };
+
+  const clearDrawing = () => {
     const context = canvasRef.current?.getContext('2d');
 
     if (context === null || context === undefined || !hasDrawing.current) {
-      return;
-    }
-
-    if (!window.confirm('いまのおえかきをぜんぶ消しますか？')) {
       return;
     }
 
@@ -608,21 +621,28 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   };
 
   const handleTemplateChange = (nextTemplateId: ColoringTemplateId) => {
+    if (nextTemplateId === templateId) {
+      return;
+    }
+
+    // 描いた絵は消えるので、何か描いてあるときだけ確かめる
+    if (hasDrawing.current) {
+      setDialog({ kind: 'template', templateId: nextTemplateId });
+      return;
+    }
+
+    changeTemplate(nextTemplateId);
+  };
+
+  const changeTemplate = (nextTemplateId: ColoringTemplateId) => {
     const context = canvasRef.current?.getContext('2d');
 
-    if (nextTemplateId === templateId || context === null || context === undefined) {
+    if (context === null || context === undefined) {
       return;
     }
 
     // 別の下絵に前の色がずれて残らないよう、描いた内容は消す。
     // 「ひとつ戻す」で前の下絵の色が戻らないよう、履歴もリセットする
-    if (
-      hasDrawing.current &&
-      !window.confirm('ぬりえを かえると、いま かいた えは ぜんぶ きえるよ。かえる？')
-    ) {
-      return;
-    }
-
     cancelActiveStroke();
     clearFillFeedback();
     context.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
@@ -656,9 +676,70 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     // 大画面ではキャラクターの形だけを泳がせたいので、外側の白い背景は透明にして渡す
     const imageData = compositeContext.getImageData(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
     clearOuterBackground(imageData.data, DRAWING_WIDTH, DRAWING_HEIGHT);
-    compositeContext.putImageData(imageData, 0, 0);
 
-    onDrawingComplete(compositeCanvas.toDataURL('image/png'));
+    // 何も描いていないと全部透明になり、大画面で見えない作品になるので先へ進ませない
+    if (findVisibleArtworkBounds(imageData.data, DRAWING_WIDTH, DRAWING_HEIGHT) === null) {
+      setDialog({ kind: 'blank' });
+      return;
+    }
+
+    compositeContext.putImageData(imageData, 0, 0);
+    setDialog({ kind: 'next', imageSrc: compositeCanvas.toDataURL('image/png') });
+  };
+
+  const closeDialog = () => setDialog(null);
+
+  /** 確認で「進む」ほうを選んだとき */
+  const handleDialogConfirm = () => {
+    if (dialog?.kind === 'next') {
+      onDrawingComplete(dialog.imageSrc);
+      return;
+    }
+
+    if (dialog?.kind === 'clear') {
+      clearDrawing();
+    } else if (dialog?.kind === 'template') {
+      changeTemplate(dialog.templateId);
+    }
+
+    closeDialog();
+  };
+
+  /** 出している確認ごとの文とボタン */
+  const getDialogCopy = (): Pick<
+    ComponentProps<typeof ConfirmDialog>,
+    'message' | 'detail' | 'imageSrc' | 'cancelLabel' | 'confirmLabel' | 'tone'
+  > => {
+    switch (dialog?.kind) {
+      case 'next':
+        return {
+          message: 'この えで いい？',
+          imageSrc: dialog.imageSrc,
+          cancelLabel: 'まだ かく',
+          confirmLabel: 'これで いい！',
+        };
+      case 'clear':
+        return {
+          message: 'ぜんぶ けして いい？',
+          cancelLabel: 'やめる',
+          confirmLabel: 'けす',
+          tone: 'danger',
+        };
+      case 'template':
+        return {
+          message: 'かいた えが きえるけど いい？',
+          cancelLabel: 'やめる',
+          confirmLabel: 'かえる',
+          tone: 'danger',
+        };
+      default:
+        // 何も描いていないとき（閉じているときも、閉じる途中の見た目のためにこの文を使う）
+        return {
+          message: 'まだ なにも かいてないよ',
+          detail: 'すきな ものを かいてみよう！',
+          cancelLabel: 'かく',
+        };
+    }
   };
 
   const selectColor = (nextColor: string, source: 'preset' | 'saved') => {
@@ -919,6 +1000,13 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
         つぎへ
         <span aria-hidden="true">›</span>
       </button>
+
+      <ConfirmDialog
+        open={dialog !== null}
+        {...getDialogCopy()}
+        onCancel={closeDialog}
+        onConfirm={handleDialogConfirm}
+      />
     </StageScreen>
   );
 }
