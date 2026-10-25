@@ -25,6 +25,7 @@ import { floodFill, type Rgba } from '../lib/paint/floodFill';
 import type { DrawingHistoryEntry } from '../types/drawing';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './DrawingScreen.module.css';
+import { RestartControl } from './RestartControl';
 import { StageScreen } from './StageScreen';
 import { StepIndicator } from './StepIndicator';
 
@@ -38,6 +39,7 @@ type DrawingScreenProps = {
   mode: DrawMode;
   onModeChange: (mode: DrawMode) => void;
   onDrawingComplete: (imageData: string) => void;
+  onRestart: () => void;
 };
 
 type Point = {
@@ -126,7 +128,12 @@ const isNearWhite = (hex: string): boolean => {
   return r >= 240 && g >= 240 && b >= 240;
 };
 
-export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: DrawingScreenProps) {
+export function DrawingScreen({
+  mode,
+  onModeChange,
+  onDrawingComplete,
+  onRestart,
+}: DrawingScreenProps) {
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const highlightCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -784,6 +791,7 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       </h1>
 
       <StepIndicator current={1} />
+      <RestartControl onRestart={onRestart} />
 
       <div className={styles.topBar}>
         <div className={styles.modeSwitcher} role="group" aria-label="おえかきの しかたを えらぶ">
