@@ -7,20 +7,51 @@ import {
   MOTION_OPTIONS,
   MOVE_BLOCK_TYPE,
   REPEAT_BLOCK_TYPE,
+  CUSTOM_SAY_PRESET,
   REPEAT_TIMES_OPTIONS,
   SAY_BLOCK_TYPE,
+  SAY_PRESET_FIELD_NAME,
+  SAY_PRESET_OPTIONS,
   TEXT_FIELD_NAME,
   TIMES_FIELD_NAME,
   limitSayText,
 } from './commandSchema.ts';
 
 const SAY_TEXT_LIMIT_EXTENSION = 'say_text_limit';
+const SAY_PRESET_SWITCH_EXTENSION = 'say_preset_switch';
 const NO_NESTED_REPEAT_EXTENSION = 'no_nested_repeat';
 
 export const defineCommandBlocks = () => {
   if (!Blockly.Extensions.isRegistered(SAY_TEXT_LIMIT_EXTENSION)) {
     Blockly.Extensions.register(SAY_TEXT_LIMIT_EXTENSION, function (this: Blockly.Block) {
       this.getField(TEXT_FIELD_NAME)?.setValidator((text: string) => limitSayText(text));
+    });
+  }
+
+  // セリフは用意したものから選ぶ。「じぶんで かく…」を選んだときだけ、文字を打つところを出す
+  if (!Blockly.Extensions.isRegistered(SAY_PRESET_SWITCH_EXTENSION)) {
+    Blockly.Extensions.register(SAY_PRESET_SWITCH_EXTENSION, function (this: Blockly.Block) {
+      const presetField = this.getField(SAY_PRESET_FIELD_NAME);
+      const textField = this.getField(TEXT_FIELD_NAME);
+
+      if (presetField === null || textField === null) {
+        return;
+      }
+
+      const showTextField = (preset: unknown) => {
+        textField.setVisible(preset === CUSTOM_SAY_PRESET);
+
+        // 出し入れしたら、ブロックの幅を描き直す
+        if (this instanceof Blockly.BlockSvg && this.rendered) {
+          void this.queueRender();
+        }
+      };
+
+      presetField.setValidator((preset: string) => {
+        showTextField(preset);
+        return preset;
+      });
+      showTextField(presetField.getValue());
     });
   }
 
@@ -80,8 +111,13 @@ export const defineCommandBlocks = () => {
     },
     {
       type: SAY_BLOCK_TYPE,
-      message0: '%1 と いう',
+      message0: '%1 %2 と いう',
       args0: [
+        {
+          type: 'field_dropdown',
+          name: SAY_PRESET_FIELD_NAME,
+          options: SAY_PRESET_OPTIONS,
+        },
         {
           type: 'field_input',
           name: TEXT_FIELD_NAME,
@@ -91,8 +127,8 @@ export const defineCommandBlocks = () => {
       previousStatement: null,
       nextStatement: null,
       colour: '#D9536F',
-      tooltip: `キャラクターに しゃべらせる ことばを きめます（${MAX_SAY_TEXT_LENGTH}もじまで）`,
-      extensions: [SAY_TEXT_LIMIT_EXTENSION],
+      tooltip: `キャラクターに しゃべらせる ことばを えらびます（じぶんで かくときは ${MAX_SAY_TEXT_LENGTH}もじまで）`,
+      extensions: [SAY_TEXT_LIMIT_EXTENSION, SAY_PRESET_SWITCH_EXTENSION],
     },
   ]);
 };

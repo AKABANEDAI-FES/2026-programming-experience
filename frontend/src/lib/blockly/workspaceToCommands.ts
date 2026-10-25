@@ -6,12 +6,14 @@ import {
   type Motion,
 } from 'shared/release';
 import {
+  CUSTOM_SAY_PRESET,
   DEFAULT_REPEAT_TIMES,
   DO_INPUT_NAME,
   MOTION_FIELD_NAME,
   MOVE_BLOCK_TYPE,
   REPEAT_BLOCK_TYPE,
   SAY_BLOCK_TYPE,
+  SAY_PRESET_FIELD_NAME,
   TEXT_FIELD_NAME,
   TIMES_FIELD_NAME,
   limitSayText,
@@ -54,7 +56,14 @@ const toBasicCommand = (block: BlockState): BasicCommand | null => {
   }
 
   if (block.type === SAY_BLOCK_TYPE) {
-    return { type: 'say', text: limitSayText(String(fields[TEXT_FIELD_NAME] ?? '')) };
+    // 用意したセリフを選んでいればそれを、「じぶんで かく…」なら打った文字を使う
+    const preset = fields[SAY_PRESET_FIELD_NAME];
+    const text =
+      typeof preset === 'string' && preset !== CUSTOM_SAY_PRESET
+        ? preset
+        : String(fields[TEXT_FIELD_NAME] ?? '');
+
+    return { type: 'say', text: limitSayText(text) };
   }
 
   return null;

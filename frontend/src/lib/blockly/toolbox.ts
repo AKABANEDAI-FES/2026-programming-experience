@@ -7,6 +7,7 @@ import {
   MOVE_BLOCK_TYPE,
   REPEAT_BLOCK_TYPE,
   SAY_BLOCK_TYPE,
+  SAY_PRESET_FIELD_NAME,
   TEXT_FIELD_NAME,
   TIMES_FIELD_NAME,
 } from './commandSchema.ts';
@@ -33,7 +34,7 @@ export const TOOLBOX = {
     {
       kind: 'block',
       type: SAY_BLOCK_TYPE,
-      fields: { [TEXT_FIELD_NAME]: DEFAULT_SAY_TEXT },
+      fields: { [SAY_PRESET_FIELD_NAME]: DEFAULT_SAY_TEXT, [TEXT_FIELD_NAME]: DEFAULT_SAY_TEXT },
       gap: GROUP_GAP,
     },
     {

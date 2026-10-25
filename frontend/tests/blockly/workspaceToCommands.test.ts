@@ -126,3 +126,25 @@ test('回数が範囲外のくりかえしは、標準の回数にする', () =>
     { type: 'repeat', times: 3, commands: [{ type: 'move', motion: 'jump' }] },
   ]);
 });
+
+const sayWith = (fields: Record<string, string>) => ({
+  blocks: { blocks: [{ type: 'say_command', x: 0, y: 0, fields }] },
+});
+
+test('用意したセリフを選んでいるときは、そのセリフにする（打った文字は使わない）', () => {
+  assert.deepEqual(workspaceToCommands(sayWith({ PRESET: 'やっほー', TEXT: 'ないしょ' })), [
+    { type: 'say', text: 'やっほー' },
+  ]);
+});
+
+test('「じぶんで かく…」を選んでいるときは、打った文字にする', () => {
+  assert.deepEqual(workspaceToCommands(sayWith({ PRESET: '__custom__', TEXT: 'すいかがすき' })), [
+    { type: 'say', text: 'すいかがすき' },
+  ]);
+});
+
+test('選ぶところがない古い形のセリフは、打った文字にする', () => {
+  assert.deepEqual(workspaceToCommands(sayWith({ TEXT: 'こんばんは' })), [
+    { type: 'say', text: 'こんばんは' },
+  ]);
+});
