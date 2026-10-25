@@ -7,6 +7,7 @@ import {
   CREATURE_WIDTH,
   ENTER_DURATION_MS,
   createMotion,
+  separationFrom,
   hasLeftScreen,
   startLeaving,
   stepMotion,
@@ -356,4 +357,56 @@ test('退場：泳いでいく間はコマンドを進めず、後ろに泡を�
 
 test('退場していない作品は、画面の外に出たことにならない', () => {
   assert.equal(hasLeftScreen(motionAt({ x: -1000 }), BOUNDS), false);
+});
+
+test('上の端：上の余白のすぐ下では、まだ上へ泳ぎ続ける（画面の上のほうにも来る）', () => {
+  // BOUNDS（高さ 600）では、上の余白の下端が 148px。その 60px 下を上へ泳いでいる
+  const nearTop = motionAt({ y: 208, vy: -10, targetVy: -10 });
+  const next = stepMotion(nearTop, [], FRAME_MS, BOUNDS, () => 0.5);
+
+  assert.ok(next.targetVy < 0);
+});
+
+test('近くにほかの作品がいると、少しずつ離れる', () => {
+  const alone = runFrames(motionAt({ x: 300, y: 200 }), 60);
+  let crowded = motionAt({ x: 300, y: 200 });
+  const neighbor = { x: 320, y: 210 };
+
+  for (let i = 0; i < 60; i += 1) {
+    crowded = stepMotion(crowded, [], FRAME_MS, BOUNDS, () => 0.5, [neighbor]);
+  }
+
+  // 相手は右下にいるので、左上へずれる。泳ぐ向き（facing）は変わらない
+  assert.ok(crowded.x < alone.x);
+  assert.ok(crowded.y < alone.y);
+  assert.equal(crowded.facing, alone.facing);
+});
+
+test('離れている作品からは押されない', () => {
+  assert.deepEqual(
+    separationFrom({ x: 0, y: 0 }, [
+      { x: 500, y: 0 },
+      { x: 0, y: 400 },
+    ]),
+    {
+      x: 0,
+      y: 0,
+    },
+  );
+});
+
+test('新しい作品は、ほかの作品が集まっている場所を避けて出てくる', () => {
+  // 決まった順に値を返す乱数（毎回同じ結果になるように）
+  let seed = 1;
+  const random = () => {
+    seed = (seed * 48271) % 2147483647;
+    return seed / 2147483647;
+  };
+  const occupied = Array.from({ length: 10 }, (_, i) => ({
+    x: 50 + (i % 2) * 40,
+    y: 150 + i * 30,
+  }));
+  const motion = createMotion(BOUNDS, random, { occupied });
+
+  assert.ok(motion.x > 300);
 });

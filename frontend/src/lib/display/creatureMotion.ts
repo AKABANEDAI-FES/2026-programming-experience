@@ -39,6 +39,18 @@ const MAX_WANDER_MS = 5000;
 const TURN_CHANCE = 0.25;
 /** 端からこの距離に入ったら内側へ向きを変え始める */
 const EDGE_MARGIN = 120;
+/**
+ * 上の端だけは浅くする。上はジャンプや吹き出しのための余白（TOP_MARGIN）をもうあけているので、
+ * 左右と同じだけ手前で引き返すと、画面の上のほうに作品が来なくなる
+ */
+const TOP_EDGE_MARGIN = 40;
+/** ほかの作品がこの範囲（作品 1 つ分）に入ったら、少しずつ離れる */
+const SEPARATION_RANGE_X = CREATURE_WIDTH;
+const SEPARATION_RANGE_Y = CREATURE_HEIGHT;
+/** 離れる速さ（px/秒）。泳ぐ向きは変えず、位置だけを少しずらす */
+const SEPARATION_SPEED = 45;
+/** 新しい作品を出すとき、いくつ場所の候補を出して、いちばん空いているところを選ぶか */
+const SPAWN_CANDIDATES = 12;
 /** 速度が目標へ近づく速さ。大きいほど素早く曲がる */
 const STEER_RATE = 1.2;
 /** 左右の向きが切り替わる速さ。4 だと約 0.4 秒で向き直る */
@@ -152,24 +164,93 @@ const verticalRange = (bounds: Bounds): { minY: number; maxY: number } => {
   return { minY: Math.min(TOP_MARGIN, maxY), maxY };
 };
 
+export type Point = {
+  x: number;
+  y: number;
+};
+
+/** 作品の大きさを 1 としたときの、2 つの位置の近さ（重なりやすさ）。小さいほど近い */
+const scaledDistance = (a: Point, b: Point): number =>
+  Math.hypot((a.x - b.x) / CREATURE_WIDTH, (a.y - b.y) / CREATURE_HEIGHT);
+
+/** 場所の候補をいくつか出し、ほかの作品からいちばん離れているところを選ぶ */
+const pickSpawnPoint = (
+  bounds: Bounds,
+  random: () => number,
+  occupied: readonly Point[],
+): Point => {
+  const { minY, maxY } = verticalRange(bounds);
+  const randomPoint = (): Point => ({
+    x: random() * Math.max(0, bounds.width - CREATURE_WIDTH),
+    y: minY + random() * (maxY - minY),
+  });
+
+  if (occupied.length === 0) {
+    return randomPoint();
+  }
+
+  let best = randomPoint();
+  let bestDistance = Math.min(...occupied.map((point) => scaledDistance(best, point)));
+
+  for (let i = 1; i < SPAWN_CANDIDATES; i += 1) {
+    const candidate = randomPoint();
+    const distance = Math.min(...occupied.map((point) => scaledDistance(candidate, point)));
+
+    if (distance > bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+
+  return best;
+};
+
+/**
+ * 近くにいる作品から離れる向き（-1〜1）。作品 1 つ分より近い相手ほど強く押し返す。
+ * 向きは泳ぐ速度ではなく位置のずれとして使うので、作品の向きがぶれない
+ */
+export const separationFrom = (self: Point, neighbors: readonly Point[]): Point => {
+  let pushX = 0;
+  let pushY = 0;
+
+  for (const [index, other] of neighbors.entries()) {
+    const dx = self.x - other.x;
+    const dy = self.y - other.y;
+    const overlapX = 1 - Math.abs(dx) / SEPARATION_RANGE_X;
+    const overlapY = 1 - Math.abs(dy) / SEPARATION_RANGE_Y;
+
+    if (overlapX <= 0 || overlapY <= 0) {
+      continue;
+    }
+
+    const strength = overlapX * overlapY;
+    // ぴったり同じ位置のときは、相手ごとに決まった向きへずらす
+    pushX += (dx === 0 ? (index % 2 === 0 ? 1 : -1) : Math.sign(dx)) * strength;
+    pushY += (dy === 0 ? (index % 2 === 0 ? -1 : 1) : Math.sign(dy)) * strength;
+  }
+
+  return { x: clamp(pushX, -1, 1), y: clamp(pushY, -1, 1) };
+};
+
 /**
  * 新しい作品の動きを作る。entering が true なら、水面（画面の上）から沈んできて登場する。
  * 大画面を開き直したときに戻ってきた作品は、最初から泳いでいるように entering を false にする。
+ * occupied にほかの作品の位置を渡すと、なるべく空いているところに出す。
  */
 export const createMotion = (
   bounds: Bounds,
   random: () => number = Math.random,
-  { entering = false }: { entering?: boolean } = {},
+  { entering = false, occupied = [] }: { entering?: boolean; occupied?: readonly Point[] } = {},
 ): CreatureMotion => {
   // 描いたままの向きで登場させたいので、最初は必ず右へ泳ぎ出す
   const direction = 1;
   const vx = direction * randomBetween(MIN_SPEED, MAX_SPEED, random);
   const vy = randomVerticalSpeed(random);
-  const { minY, maxY } = verticalRange(bounds);
+  const spawn = pickSpawnPoint(bounds, random, occupied);
 
   return {
-    x: random() * Math.max(0, bounds.width - CREATURE_WIDTH),
-    y: minY + random() * (maxY - minY),
+    x: spawn.x,
+    y: spawn.y,
     vx,
     vy,
     targetVx: vx,
@@ -209,6 +290,8 @@ export const stepMotion = (
   deltaMs: number,
   bounds: Bounds,
   random: () => number = Math.random,
+  /** ほかの作品の位置。近すぎたら少し離れる */
+  neighbors: readonly Point[] = [],
 ): CreatureMotion => {
   const seconds = deltaMs / 1000;
   const maxX = Math.max(0, bounds.width - CREATURE_WIDTH);
@@ -241,7 +324,7 @@ export const stepMotion = (
       targetVx = -Math.abs(targetVx);
     }
 
-    if (y < minY + EDGE_MARGIN) {
+    if (y < minY + TOP_EDGE_MARGIN) {
       targetVy = Math.abs(targetVy);
     } else if (y > maxY - EDGE_MARGIN) {
       targetVy = -Math.abs(targetVy);
@@ -259,10 +342,15 @@ export const stepMotion = (
   const dashIntensity = getDashIntensity(action);
   const speedRate = 1 + (DASH_MAX_SPEED_RATE - 1) * dashIntensity;
 
-  x = leaving ? x + vx * seconds : clamp(x + vx * speedRate * seconds, 0, maxX);
+  // 近くの作品から少し離れる（退場中は画面の外へ急ぐので離れない）
+  const separation = leaving ? { x: 0, y: 0 } : separationFrom({ x, y }, neighbors);
+
+  x = leaving
+    ? x + vx * seconds
+    : clamp(x + (vx * speedRate + separation.x * SEPARATION_SPEED) * seconds, 0, maxX);
 
   if (!entering) {
-    y = clamp(y + vy * speedRate * seconds, minY, maxY);
+    y = clamp(y + (vy * speedRate + separation.y * SEPARATION_SPEED) * seconds, minY, maxY);
   }
 
   const targetFacing = vx < 0 ? -1 : 1;
