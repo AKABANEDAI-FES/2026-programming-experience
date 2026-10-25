@@ -45,6 +45,10 @@ export function BlockWorkspace({ onCommandsChange, scale = 1 }: BlockWorkspacePr
     let cleanup = () => {};
 
     const setup = () => {
+      // ▼ の選択肢（ドロップダウン）はページ全体に出す。Blockly を置いている枠ははみ出しを切るので、
+      // 枠の中に出すと画面が小さいときに選択肢が切れて選べなくなる（最初の inject の前だけ効く）
+      Blockly.common.setParentContainer(document.body);
+
       const workspace = Blockly.inject(container, {
         toolbox: TOOLBOX,
         theme: KIDS_THEME,
