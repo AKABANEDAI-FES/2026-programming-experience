@@ -57,7 +57,8 @@ type DrawingDialog =
   | { kind: 'next'; imageSrc: string }
   | { kind: 'blank' }
   | { kind: 'clear' }
-  | { kind: 'template'; templateId: ColoringTemplateId };
+  | { kind: 'template'; templateId: ColoringTemplateId }
+  | { kind: 'mode'; mode: DrawMode };
 
 type CursorIndicator = {
   leftPercent: number;
@@ -610,13 +611,42 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
     setCanClear(false);
   };
 
-  const handleModeChange = (nextMode: DrawMode) => {
-    if (nextMode === mode) {
+  /**
+   * 描いた絵を消し、「ひとつ もどす」の履歴も捨てる。
+   * 下絵が変わるときに使い、前の絵が新しい下絵に重なったり、もどすで戻ったりしないようにする
+   */
+  const resetDrawing = () => {
+    const context = canvasRef.current?.getContext('2d');
+
+    if (context === null || context === undefined) {
       return;
     }
 
     cancelActiveStroke();
     clearFillFeedback();
+    context.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
+    hasDrawing.current = false;
+    history.current = [];
+    setCanUndo(false);
+    setCanClear(false);
+  };
+
+  const handleModeChange = (nextMode: DrawMode) => {
+    if (nextMode === mode) {
+      return;
+    }
+
+    // 描いた絵は消えるので、何か描いてあるときだけ確かめる
+    if (hasDrawing.current) {
+      setDialog({ kind: 'mode', mode: nextMode });
+      return;
+    }
+
+    changeMode(nextMode);
+  };
+
+  const changeMode = (nextMode: DrawMode) => {
+    resetDrawing();
     onModeChange(nextMode);
   };
 
@@ -635,21 +665,7 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
   };
 
   const changeTemplate = (nextTemplateId: ColoringTemplateId) => {
-    const context = canvasRef.current?.getContext('2d');
-
-    if (context === null || context === undefined) {
-      return;
-    }
-
-    // 別の下絵に前の色がずれて残らないよう、描いた内容は消す。
-    // 「ひとつ戻す」で前の下絵の色が戻らないよう、履歴もリセットする
-    cancelActiveStroke();
-    clearFillFeedback();
-    context.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT);
-    hasDrawing.current = false;
-    history.current = [];
-    setCanUndo(false);
-    setCanClear(false);
+    resetDrawing();
     setTemplateId(nextTemplateId);
   };
 
@@ -700,6 +716,8 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
       clearDrawing();
     } else if (dialog?.kind === 'template') {
       changeTemplate(dialog.templateId);
+    } else if (dialog?.kind === 'mode') {
+      changeMode(dialog.mode);
     }
 
     closeDialog();
@@ -726,6 +744,7 @@ export function DrawingScreen({ mode, onModeChange, onDrawingComplete }: Drawing
           tone: 'danger',
         };
       case 'template':
+      case 'mode':
         return {
           message: 'かいた えが きえるけど いい？',
           cancelLabel: 'やめる',
