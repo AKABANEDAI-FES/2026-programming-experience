@@ -108,7 +108,7 @@ test('中が空のくりかえしは、中身なしで変換する', () => {
   ]);
 });
 
-test('くりかえしの中のくりかえしと無効化されたブロックは、中身に含めない', () => {
+test('くりかえしの中のくりかえし（2 段）はそのまま変換し、無効化されたブロックは含めない', () => {
   const json = workspace(
     repeatBlock(
       '2',
@@ -118,7 +118,21 @@ test('くりかえしの中のくりかえしと無効化されたブロック�
     ),
   );
 
-  assert.deepEqual(workspaceToCommands(json), [{ type: 'repeat', times: 2, commands: [] }]);
+  assert.deepEqual(workspaceToCommands(json), [
+    {
+      type: 'repeat',
+      times: 2,
+      commands: [{ type: 'repeat', times: 3, commands: [{ type: 'move', motion: 'spin' }] }],
+    },
+  ]);
+});
+
+test('3 段目のくりかえしは、中身ごと含めない', () => {
+  const json = workspace(repeatBlock('2', repeatBlock('3', repeatBlock('2', moveBlock('jump')))));
+
+  assert.deepEqual(workspaceToCommands(json), [
+    { type: 'repeat', times: 2, commands: [{ type: 'repeat', times: 3, commands: [] }] },
+  ]);
 });
 
 test('回数が範囲外のくりかえしは、標準の回数にする', () => {

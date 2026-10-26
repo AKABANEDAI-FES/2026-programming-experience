@@ -1,6 +1,7 @@
 import {
   countCommands,
   MAX_COMMANDS,
+  MAX_NESTING_DEPTH,
   MAX_REPEAT_TIMES,
   MAX_SAY_TEXT_LENGTH,
   MIN_REPEAT_TIMES,
@@ -43,7 +44,8 @@ const validateBasicCommand = (command: Record<string, unknown>, path: string): s
   return null;
 };
 
-const validateCommand = (command: unknown, path: string, insideRepeat: boolean): string | null => {
+/** depth は、このコマンドを囲んでいるくりかえしの数（いちばん外なら 0） */
+const validateCommand = (command: unknown, path: string, depth: number): string | null => {
   if (!isRecord(command)) {
     return `${path} はオブジェクトで指定してください`;
   }
@@ -53,8 +55,8 @@ const validateCommand = (command: unknown, path: string, insideRepeat: boolean):
   }
 
   if (command.type === 'repeat') {
-    if (insideRepeat) {
-      return `${path} くりかえしの中に、くりかえしは入れられません`;
+    if (depth >= MAX_NESTING_DEPTH) {
+      return `${path} くりかえしは${MAX_NESTING_DEPTH}段までしか重ねられません`;
     }
 
     if (
@@ -71,7 +73,7 @@ const validateCommand = (command: unknown, path: string, insideRepeat: boolean):
     }
 
     for (const [index, inner] of command.commands.entries()) {
-      const errorMessage = validateCommand(inner, `${path}.commands[${index}]`, true);
+      const errorMessage = validateCommand(inner, `${path}.commands[${index}]`, depth + 1);
 
       if (errorMessage !== null) {
         return errorMessage;
@@ -81,9 +83,7 @@ const validateCommand = (command: unknown, path: string, insideRepeat: boolean):
     return null;
   }
 
-  return insideRepeat
-    ? `${path}.type は "move" または "say" を指定してください`
-    : `${path}.type は "move"・"say"・"repeat" のいずれかを指定してください`;
+  return `${path}.type は "move"・"say"・"repeat" のいずれかを指定してください`;
 };
 
 export const validateReleaseRequest = (value: unknown): ReleaseRequestValidationResult => {
@@ -111,7 +111,7 @@ export const validateReleaseRequest = (value: unknown): ReleaseRequestValidation
   }
 
   for (const [index, command] of value.commands.entries()) {
-    const errorMessage = validateCommand(command, `commands[${index}]`, false);
+    const errorMessage = validateCommand(command, `commands[${index}]`, 0);
 
     if (errorMessage !== null) {
       return { success: false, message: errorMessage };
