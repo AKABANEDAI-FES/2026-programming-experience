@@ -1,5 +1,11 @@
 import type { BasicCommand, Command, Motion } from 'shared';
-import { commandAt, nextCursor, startCursor, type ProgramCursor } from './programCursor.ts';
+import {
+  commandAt,
+  nextCursor,
+  startCursor,
+  type ConditionCheck,
+  type ProgramCursor,
+} from './programCursor.ts';
 
 export const CREATURE_WIDTH = 220;
 export const CREATURE_HEIGHT = 132;
@@ -52,6 +58,11 @@ const SEPARATION_RANGE_Y = CREATURE_HEIGHT;
 const SEPARATION_SPEED = 45;
 /** 新しい作品を出すとき、いくつ場所の候補を出して、いちばん空いているところを選ぶか */
 const SPAWN_CANDIDATES = 12;
+/** 「なかまが ちかくに いる」：ほかの作品がこの範囲（作品 1.5 個分）にいたら、近くにいるとみなす */
+const NEAR_FRIEND_RANGE_X = CREATURE_WIDTH * 1.5;
+const NEAR_FRIEND_RANGE_Y = CREATURE_HEIGHT * 1.5;
+/** 確率の条件で、当たる割合 */
+const CHANCE_RATES = { chance_25: 0.25, chance_50: 0.5, chance_75: 0.75 } as const;
 /** 速度が目標へ近づく速さ。大きいほど素早く曲がる */
 const STEER_RATE = 1.2;
 /** 左右の向きが切り替わる速さ。4 だと約 0.4 秒で向き直る */
@@ -129,6 +140,11 @@ const currentAction = (
   motion: Pick<CreatureMotion, 'cursor' | 'commandElapsed'>,
   program: readonly Command[],
 ): { command: BasicCommand; progress: number } | null => {
+  // 条件に合わず、調べ直すまで待っている間は、何もしない
+  if (motion.commandElapsed < 0) {
+    return null;
+  }
+
   const command = commandAt(program, resolveCursor(program, motion.cursor));
 
   if (command === null) {
@@ -212,6 +228,43 @@ const pickSpawnPoint = (
 
   return best;
 };
+
+/**
+ * 大画面での「もし」の条件の調べ方。self はこの作品の位置
+ * - なかまが ちかくに いる：ほかの作品が作品 1.5 個分より近くにいる
+ * - はしに いる：端で向きを変え始めるところ（上は浅め）にいる
+ * - ○かいに 1かい：その確率で当たる
+ */
+export const conditionCheckFor =
+  (
+    self: Point,
+    neighbors: readonly Point[],
+    bounds: Bounds,
+    random: () => number = Math.random,
+  ): ConditionCheck =>
+  (condition) => {
+    if (condition === 'near_friend') {
+      return neighbors.some(
+        (other) =>
+          Math.abs(other.x - self.x) < NEAR_FRIEND_RANGE_X &&
+          Math.abs(other.y - self.y) < NEAR_FRIEND_RANGE_Y,
+      );
+    }
+
+    if (condition === 'at_edge') {
+      const maxX = Math.max(0, bounds.width - CREATURE_WIDTH);
+      const { minY, maxY } = verticalRange(bounds);
+
+      return (
+        self.x < EDGE_MARGIN ||
+        self.x > maxX - EDGE_MARGIN ||
+        self.y < minY + TOP_EDGE_MARGIN ||
+        self.y > maxY - EDGE_MARGIN
+      );
+    }
+
+    return random() < CHANCE_RATES[condition];
+  };
 
 /**
  * 近くにいる作品から離れる向き（-1〜1）。作品 1 つ分より近い相手ほど強く押し返す。
@@ -298,8 +351,10 @@ export const stepMotion = (
   deltaMs: number,
   bounds: Bounds,
   random: () => number = Math.random,
-  /** ほかの作品の位置。近すぎたら少し離れる */
+  /** ほかの作品の位置。近すぎたら少し離れる。「なかまが ちかくに いる」の条件にも使う */
   neighbors: readonly Point[] = [],
+  /** 「もし」の条件の調べ方を差し替える（プレビューで、なかまや端を見立てるときに使う） */
+  conditionCheck?: ConditionCheck,
 ): CreatureMotion => {
   const seconds = deltaMs / 1000;
   const maxX = Math.max(0, bounds.width - CREATURE_WIDTH);
@@ -366,27 +421,45 @@ export const stepMotion = (
   facing += (targetFacing - facing) * Math.min(1, seconds * TURN_RATE);
   bobPhase = (bobPhase + seconds * BOB_SPEED) % (Math.PI * 2);
 
+  // 「もし」の条件は、再生がそこに来たときの、この作品のまわりのようすで調べる
+  const check = conditionCheck ?? conditionCheckFor({ x, y }, neighbors, bounds, random);
   let current = commandAt(commands, cursor);
 
-  // 位置がまだ決まっていない、またはブロックと合わなくなっていたら、最初から再生する
-  if (current === null) {
-    cursor = startCursor(commands) ?? [];
-    commandElapsed = 0;
-    current = commandAt(commands, cursor);
-  }
-
-  if (current === null) {
-    // 再生するものがない
+  if (commands.length === 0) {
     cursor = [];
     commandElapsed = 0;
   } else if (!entering && !leaving) {
-    commandElapsed += deltaMs;
+    let remaining = deltaMs;
 
-    // 動きと休みが終わったら、ブロックをたどって次の動き・セリフへ進む
-    while (current !== null && commandElapsed >= commandDurationMs(current)) {
-      commandElapsed -= commandDurationMs(current);
-      cursor = nextCursor(commands, cursor) ?? [];
-      current = commandAt(commands, cursor);
+    if (current === null) {
+      // 前に 1 周しても再生するものがなかった（条件に合わなかった）ときは、少し休んでから調べ直す
+      if (commandElapsed < 0) {
+        const waited = Math.min(-commandElapsed, remaining);
+        commandElapsed += waited;
+        remaining -= waited;
+      }
+
+      // 位置がまだ決まっていない、またはブロックと合わなくなっていたら、最初から再生する
+      if (commandElapsed >= 0) {
+        cursor = startCursor(commands, check) ?? [];
+        current = commandAt(commands, cursor);
+        commandElapsed = current === null ? -COMMAND_REST_MS : 0;
+      }
+    }
+
+    if (current !== null) {
+      commandElapsed += remaining;
+
+      // 動きと休みが終わったら、ブロックをたどって次の動き・セリフへ進む
+      while (current !== null && commandElapsed >= commandDurationMs(current)) {
+        commandElapsed -= commandDurationMs(current);
+        cursor = nextCursor(commands, cursor, check) ?? [];
+        current = commandAt(commands, cursor);
+
+        if (current === null) {
+          commandElapsed = -COMMAND_REST_MS;
+        }
+      }
     }
   }
 

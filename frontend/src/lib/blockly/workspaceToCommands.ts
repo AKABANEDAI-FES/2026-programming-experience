@@ -1,21 +1,28 @@
 import {
+  CONDITIONS,
   MAX_NESTING_DEPTH,
   MAX_REPEAT_TIMES,
   MIN_REPEAT_TIMES,
   type BasicCommand,
   type Command,
+  type Condition,
   type Motion,
 } from 'shared/release';
 import {
+  CONDITION_FIELD_NAME,
   CUSTOM_SAY_PRESET,
+  DEFAULT_CONDITION,
   DEFAULT_REPEAT_TIMES,
   DO_INPUT_NAME,
+  ELSE_INPUT_NAME,
+  IF_BLOCK_TYPE,
   MOTION_FIELD_NAME,
   MOVE_BLOCK_TYPE,
   REPEAT_BLOCK_TYPE,
   SAY_BLOCK_TYPE,
   SAY_PRESET_FIELD_NAME,
   TEXT_FIELD_NAME,
+  THEN_INPUT_NAME,
   TIMES_FIELD_NAME,
   limitSayText,
 } from './commandSchema.ts';
@@ -78,26 +85,40 @@ const toRepeatTimes = (value: unknown): number => {
     : DEFAULT_REPEAT_TIMES;
 };
 
-/** depth は、このブロックを囲んでいるくりかえしの数（いちばん外なら 0） */
+const toCondition = (value: unknown): Condition =>
+  CONDITIONS.find((condition) => condition === value) ?? DEFAULT_CONDITION;
+
+/** depth は、このブロックを囲んでいるくりかえし・「もし」の数（いちばん外なら 0） */
 const toCommand = (block: BlockState, depth = 0): Command | null => {
   if (isDisabled(block)) {
     return null;
   }
 
-  if (block.type === REPEAT_BLOCK_TYPE) {
-    // くりかえしは MAX_NESTING_DEPTH 段まで（画面でも外に出すが、念のため中身からも外す）
+  // 入れ物の中のブロックを、1 段深いものとして変換する
+  const commandsIn = (inputName: string): Command[] =>
+    chainOf(block.inputs?.[inputName]?.block)
+      .map((child) => toCommand(child, depth + 1))
+      .filter((command): command is Command => command !== null);
+
+  if (block.type === REPEAT_BLOCK_TYPE || block.type === IF_BLOCK_TYPE) {
+    // くりかえし・「もし」は合わせて MAX_NESTING_DEPTH 段まで（画面でも外に出すが、念のため中身からも外す）
     if (depth >= MAX_NESTING_DEPTH) {
       return null;
     }
 
-    const inner = chainOf(block.inputs?.[DO_INPUT_NAME]?.block)
-      .map((child) => toCommand(child, depth + 1))
-      .filter((command): command is Command => command !== null);
+    if (block.type === IF_BLOCK_TYPE) {
+      return {
+        type: 'if',
+        condition: toCondition(block.fields?.[CONDITION_FIELD_NAME]),
+        thenCommands: commandsIn(THEN_INPUT_NAME),
+        elseCommands: commandsIn(ELSE_INPUT_NAME),
+      };
+    }
 
     return {
       type: 'repeat',
       times: toRepeatTimes(block.fields?.[TIMES_FIELD_NAME]),
-      commands: inner,
+      commands: commandsIn(DO_INPUT_NAME),
     };
   }
 

@@ -77,3 +77,97 @@ test('位置がブロックと合わないときは、コマンドなし（null�
   assert.equal(commandAt([jump], [{ index: 5, iteration: 0 }]), null);
   assert.equal(commandAt([jump], []), null);
 });
+
+const ifEdge = (thenCommands: Command[], elseCommands: Command[]): Command => ({
+  type: 'if',
+  condition: 'at_edge',
+  thenCommands,
+  elseCommands,
+});
+
+/** check に答えさせながら、再生される動き・セリフを count 個集める */
+const playWith = (
+  program: Command[],
+  count: number,
+  check: (condition: string) => boolean,
+): BasicCommand[] => {
+  const played: BasicCommand[] = [];
+  let cursor: ProgramCursor | null = startCursor(program, check);
+
+  for (let i = 0; i < count && cursor !== null; i += 1) {
+    const command = commandAt(program, cursor);
+    assert.ok(command !== null);
+    played.push(command);
+    cursor = nextCursor(program, cursor, check);
+  }
+
+  return played;
+};
+
+test('「もし」は、条件に合えば合ったときの中身を、合わなければそうでなければの中身を再生する', () => {
+  const program = [ifEdge([jump], [spin]), say('つぎ')];
+
+  assert.deepEqual(
+    playWith(program, 4, () => true),
+    [jump, say('つぎ'), jump, say('つぎ')],
+  );
+  assert.deepEqual(
+    playWith(program, 4, () => false),
+    [spin, say('つぎ'), spin, say('つぎ')],
+  );
+});
+
+test('「もし」の条件は、そこに来るたびに調べ直す', () => {
+  const program = [ifEdge([jump], [spin])];
+  const answers = [true, false, false, true];
+  let asked = 0;
+
+  const played = playWith(program, 4, () => answers[asked++ % answers.length]);
+
+  assert.deepEqual(played, [jump, spin, spin, jump]);
+});
+
+test('くりかえしの中の「もし」は、回ごとに条件を調べる', () => {
+  const program: Command[] = [{ type: 'repeat', times: 3, commands: [ifEdge([jump], [spin])] }];
+  const answers = [true, false, true];
+  let asked = 0;
+
+  assert.deepEqual(
+    playWith(program, 3, () => answers[asked++]),
+    [jump, spin, jump],
+  );
+});
+
+test('選ばれた分かれ道が空なら、「もし」を飛ばして次へ進む', () => {
+  const program = [ifEdge([], [spin]), jump];
+
+  assert.deepEqual(
+    playWith(program, 3, () => true),
+    [jump, jump, jump],
+  );
+  assert.deepEqual(
+    playWith(program, 3, () => false),
+    [spin, jump, spin],
+  );
+});
+
+test('「もし」しかなく、選ばれた分かれ道が空なら、ひと回りで止めて null にする（引き直さない）', () => {
+  let asked = 0;
+  const check = () => {
+    asked += 1;
+    return true;
+  };
+
+  assert.equal(startCursor([ifEdge([], [spin])], check), null);
+  assert.equal(asked, 1);
+
+  const program = [ifEdge([jump], [])];
+  const cursor = startCursor(program, () => true);
+  assert.ok(cursor !== null);
+  asked = 0;
+  assert.equal(
+    nextCursor(program, cursor, () => (asked++, false)),
+    null,
+  );
+  assert.equal(asked, 1);
+});

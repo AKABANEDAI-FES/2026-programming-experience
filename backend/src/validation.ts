@@ -1,4 +1,5 @@
 import {
+  CONDITIONS,
   countCommands,
   MAX_COMMANDS,
   MAX_NESTING_DEPTH,
@@ -44,7 +45,26 @@ const validateBasicCommand = (command: Record<string, unknown>, path: string): s
   return null;
 };
 
-/** depth は、このコマンドを囲んでいるくりかえしの数（いちばん外なら 0） */
+const allowedConditions = CONDITIONS.map((condition) => `"${condition}"`).join('・');
+
+/** 入れ物（くりかえし・「もし」）の中のコマンドの並びを確かめる */
+const validateCommandList = (list: unknown, path: string, depth: number): string | null => {
+  if (!Array.isArray(list)) {
+    return `${path} は配列で指定してください`;
+  }
+
+  for (const [index, inner] of list.entries()) {
+    const errorMessage = validateCommand(inner, `${path}[${index}]`, depth);
+
+    if (errorMessage !== null) {
+      return errorMessage;
+    }
+  }
+
+  return null;
+};
+
+/** depth は、このコマンドを囲んでいるくりかえし・「もし」の数（いちばん外なら 0） */
 const validateCommand = (command: unknown, path: string, depth: number): string | null => {
   if (!isRecord(command)) {
     return `${path} はオブジェクトで指定してください`;
@@ -54,36 +74,35 @@ const validateCommand = (command: unknown, path: string, depth: number): string 
     return validateBasicCommand(command, path);
   }
 
-  if (command.type === 'repeat') {
-    if (depth >= MAX_NESTING_DEPTH) {
-      return `${path} くりかえしは${MAX_NESTING_DEPTH}段までしか重ねられません`;
-    }
-
-    if (
-      typeof command.times !== 'number' ||
-      !Number.isInteger(command.times) ||
-      command.times < MIN_REPEAT_TIMES ||
-      command.times > MAX_REPEAT_TIMES
-    ) {
-      return `${path}.times は${MIN_REPEAT_TIMES}〜${MAX_REPEAT_TIMES}の整数で指定してください`;
-    }
-
-    if (!Array.isArray(command.commands)) {
-      return `${path}.commands は配列で指定してください`;
-    }
-
-    for (const [index, inner] of command.commands.entries()) {
-      const errorMessage = validateCommand(inner, `${path}.commands[${index}]`, depth + 1);
-
-      if (errorMessage !== null) {
-        return errorMessage;
-      }
-    }
-
-    return null;
+  if (command.type !== 'repeat' && command.type !== 'if') {
+    return `${path}.type は "move"・"say"・"repeat"・"if" のいずれかを指定してください`;
   }
 
-  return `${path}.type は "move"・"say"・"repeat" のいずれかを指定してください`;
+  if (depth >= MAX_NESTING_DEPTH) {
+    return `${path} くりかえしや「もし」は${MAX_NESTING_DEPTH}段までしか重ねられません`;
+  }
+
+  if (command.type === 'if') {
+    if (!CONDITIONS.some((condition) => condition === command.condition)) {
+      return `${path}.condition は ${allowedConditions} のいずれかを指定してください`;
+    }
+
+    return (
+      validateCommandList(command.thenCommands, `${path}.thenCommands`, depth + 1) ??
+      validateCommandList(command.elseCommands, `${path}.elseCommands`, depth + 1)
+    );
+  }
+
+  if (
+    typeof command.times !== 'number' ||
+    !Number.isInteger(command.times) ||
+    command.times < MIN_REPEAT_TIMES ||
+    command.times > MAX_REPEAT_TIMES
+  ) {
+    return `${path}.times は${MIN_REPEAT_TIMES}〜${MAX_REPEAT_TIMES}の整数で指定してください`;
+  }
+
+  return validateCommandList(command.commands, `${path}.commands`, depth + 1);
 };
 
 export const validateReleaseRequest = (value: unknown): ReleaseRequestValidationResult => {

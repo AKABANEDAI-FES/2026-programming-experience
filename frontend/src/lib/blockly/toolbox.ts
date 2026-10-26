@@ -1,7 +1,10 @@
 import * as Blockly from 'blockly';
 import {
+  CONDITION_FIELD_NAME,
+  DEFAULT_CONDITION,
   DEFAULT_REPEAT_TIMES,
   DEFAULT_SAY_TEXT,
+  IF_BLOCK_TYPE,
   MOTION_FIELD_NAME,
   MOTION_OPTIONS,
   MOVE_BLOCK_TYPE,
@@ -41,6 +44,13 @@ export const TOOLBOX = {
       kind: 'block',
       type: REPEAT_BLOCK_TYPE,
       fields: { [TIMES_FIELD_NAME]: String(DEFAULT_REPEAT_TIMES) },
+      gap: GROUP_GAP,
+    },
+    // 「もし」はいちばん下に置く（使いたい人だけが使えばよい、少しむずかしいブロック）
+    {
+      kind: 'block',
+      type: IF_BLOCK_TYPE,
+      fields: { [CONDITION_FIELD_NAME]: DEFAULT_CONDITION },
     },
   ],
 } as Blockly.utils.toolbox.ToolboxDefinition;
