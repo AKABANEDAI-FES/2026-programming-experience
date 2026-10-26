@@ -15,6 +15,7 @@ import {
   stepMotion,
   toVisual,
   type CreatureMotion,
+  type Point,
 } from '../../lib/display/creatureMotion.ts';
 import {
   findVisibleArtworkBounds,
@@ -45,6 +46,19 @@ type CreatureNode = {
 
 const toImageUrl = (imageUrl: string): string =>
   imageUrl.startsWith('http') ? imageUrl : `/api/images/${imageUrl}`;
+
+/** 泳いでいるほかの作品の位置（出ていく途中の作品は数えない） */
+const swimmingPositions = (motions: Map<string, CreatureMotion>, exceptId: string): Point[] => {
+  const positions: Point[] = [];
+
+  for (const [id, motion] of motions) {
+    if (id !== exceptId && motion.leaveDirection === 0) {
+      positions.push({ x: motion.x, y: motion.y });
+    }
+  }
+
+  return positions;
+};
 
 export function DisplayPage() {
   const [creatures, setCreatures] = useState<Creature[]>([]);
@@ -87,7 +101,9 @@ export function DisplayPage() {
     for (const creature of result.creatures) {
       // 出ていく途中に再接続で戻ってきた作品は、泳ぎ直させる
       if (!motions.current.has(creature.id) || motions.current.get(creature.id)?.leaveDirection) {
-        motions.current.set(creature.id, createMotion(bounds, Math.random, { entering }));
+        // ほかの作品となるべく重ならないよう、空いているところに出す
+        const occupied = swimmingPositions(motions.current, creature.id);
+        motions.current.set(creature.id, createMotion(bounds, Math.random, { entering, occupied }));
         commands.current.set(creature.id, expandCommands(creature.commands));
       }
     }
@@ -186,7 +202,14 @@ export function DisplayPage() {
         }
 
         const creatureCommands = commands.current.get(id) ?? [];
-        const nextMotion = stepMotion(motion, creatureCommands, delta, bounds);
+        const nextMotion = stepMotion(
+          motion,
+          creatureCommands,
+          delta,
+          bounds,
+          Math.random,
+          swimmingPositions(motions.current, id),
+        );
         const visual = toVisual(nextMotion, creatureCommands);
 
         // 退場して画面の外へ出きったら、動きとコマンドを捨てて、描くのもやめる
