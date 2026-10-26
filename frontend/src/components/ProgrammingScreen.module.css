@@ -146,9 +146,19 @@
 
 .blocklyOverlay {
   position: fixed;
-  /* 角丸のパネルからはみ出さないよう、下の角だけ丸める（縮めても見た目が近くなるよう % で指定） */
-  border-radius: 0 0 2.5% 2.5% / 0 0 4% 4%;
-  overflow: hidden;
+}
+
+/*
+ * はみ出しは切らない。▼ の選択肢（ドロップダウン）は Blockly の中に出るので、
+ * ここで切ると、画面が小さいときに選択肢が枠からはみ出した分だけ切れて選べなくなる
+ */
+.blocklyOverlay :global(.injectionDiv) {
+  overflow: visible;
+}
+
+/* 角丸のパネルからはみ出さないよう、Blockly の絵だけ下の角を丸める（縮めても見た目が近くなるよう % で指定） */
+.blocklyOverlay :global(.blocklySvg) {
+  clip-path: inset(0 round 0 0 2.5% 2.5% / 0 0 4% 4%);
 }
 
 .blocklyOverlay[inert] {
