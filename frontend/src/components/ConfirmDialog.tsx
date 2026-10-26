@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useStageScale } from '../lib/ui/useStageScale';
 import styles from './ConfirmDialog.module.css';
 
@@ -37,6 +37,8 @@ export function ConfirmDialog({
   tone = 'go',
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // 1 つの画面に確認を 2 つ置いても id が重ならないよう、自動で作る
+  const messageId = useId();
   const scale = useStageScale();
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export function ConfirmDialog({
       ref={dialogRef}
       className={styles.dialog}
       style={{ transform: `scale(${scale})` }}
-      aria-labelledby="confirm-dialog-message"
+      aria-labelledby={messageId}
       onCancel={(event) => {
         event.preventDefault();
         onCancel();
@@ -69,7 +71,7 @@ export function ConfirmDialog({
           <img className={styles.previewImage} src={imageSrc} alt="かいた え" />
         </div>
       )}
-      <p id="confirm-dialog-message" className={styles.message}>
+      <p id={messageId} className={styles.message}>
         {message}
       </p>
       {detail !== undefined && <p className={styles.detail}>{detail}</p>}

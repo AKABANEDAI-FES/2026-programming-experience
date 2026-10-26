@@ -30,6 +30,12 @@ function App() {
     setStep('programming');
   };
 
+  const handleRestart = () => {
+    setDrawMode(null);
+    setImageData(null);
+    setStep('home');
+  };
+
   const handleReleaseComplete = () => setStep('complete');
 
   useEffect(() => {
@@ -57,6 +63,7 @@ function App() {
           mode={drawMode}
           onModeChange={setDrawMode}
           onDrawingComplete={handleDrawingComplete}
+          onRestart={handleRestart}
         />
       );
     }
@@ -69,7 +76,13 @@ function App() {
       return <HomeScreen onSelectMode={handleSelectMode} />;
     }
 
-    return <ProgrammingScreen imageData={imageData} onReleaseComplete={handleReleaseComplete} />;
+    return (
+      <ProgrammingScreen
+        imageData={imageData}
+        onReleaseComplete={handleReleaseComplete}
+        onRestart={handleRestart}
+      />
+    );
   };
 
   return <main className={styles.app}>{renderCurrentScreen()}</main>;

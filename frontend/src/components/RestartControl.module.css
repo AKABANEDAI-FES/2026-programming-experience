@@ -1,0 +1,45 @@
+.button {
+  position: absolute;
+  top: 30px;
+  left: 60px;
+  min-height: 88px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 28px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 6px 0 rgb(23 48 90 / 12%);
+  color: var(--ink);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--sea-50);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(6px);
+  box-shadow: none;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button:focus-visible {
+  outline: 6px solid var(--sea-700);
+  outline-offset: 6px;
+}

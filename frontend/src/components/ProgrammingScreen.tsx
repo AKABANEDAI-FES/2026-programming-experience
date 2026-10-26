@@ -17,6 +17,7 @@ import {
   type SubmissionAttempt,
 } from '../lib/release-submission';
 import { BlockWorkspace } from './BlockWorkspace';
+import { RestartControl } from './RestartControl';
 import styles from './ProgrammingScreen.module.css';
 import { StageScreen } from './StageScreen';
 import { StepIndicator } from './StepIndicator';
@@ -25,6 +26,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 type ProgrammingScreenProps = {
   imageData: string;
   onReleaseComplete: () => void;
+  onRestart: () => void;
 };
 
 type BlocklyOverlayProps = {
@@ -138,7 +140,11 @@ function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
   );
 }
 
-export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingScreenProps) {
+export function ProgrammingScreen({
+  imageData,
+  onReleaseComplete,
+  onRestart,
+}: ProgrammingScreenProps) {
   const [commands, setCommands] = useState<Command[]>([]);
   const [releaseState, setReleaseState] = useState<ReleaseState>('idle');
   const [isConfirmingRelease, setIsConfirmingRelease] = useState(false);
@@ -260,6 +266,7 @@ export function ProgrammingScreen({ imageData, onReleaseComplete }: ProgrammingS
       )}
     >
       <StepIndicator current={2} />
+      <RestartControl onRestart={onRestart} disabled={isSubmissionUnresolved} />
 
       <div className={styles.creatureCard}>
         <p className={styles.cardTitle}>きみの なかま</p>
