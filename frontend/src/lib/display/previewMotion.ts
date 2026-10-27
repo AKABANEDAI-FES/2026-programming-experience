@@ -1,4 +1,4 @@
-import type { BasicCommand } from 'shared';
+import type { Command } from 'shared';
 import { stepMotion, toVisual, type CreatureMotion } from './creatureMotion.ts';
 
 /** プレビューの枠は大画面より小さいので、ジャンプやふわふわの上下の動きはこの割合に縮める */
@@ -30,7 +30,7 @@ export const createPreviewMotion = (): CreatureMotion => ({
   wanderRemaining: Number.POSITIVE_INFINITY,
   facing: 1,
   bobPhase: 0,
-  commandIndex: 0,
+  cursor: [],
   commandElapsed: 0,
   enterRemaining: 0,
   enterFromY: 0,
@@ -38,13 +38,13 @@ export const createPreviewMotion = (): CreatureMotion => ({
 });
 
 /** 並び・動き・セリフがすべて同じか。同じなら、プレビューを最初からやり直さない */
-export const isSameCommands = (a: readonly BasicCommand[], b: readonly BasicCommand[]): boolean =>
+export const isSameCommands = (a: readonly Command[], b: readonly Command[]): boolean =>
   JSON.stringify(a) === JSON.stringify(b);
 
 /** コマンドの進み具合とふわふわだけを進め、位置と泳ぐ向きはそのままにする */
 export const stepPreviewMotion = (
   motion: CreatureMotion,
-  commands: BasicCommand[],
+  commands: readonly Command[],
   deltaMs: number,
 ): CreatureMotion => {
   const next = stepMotion(motion, commands, deltaMs, PREVIEW_BOUNDS);
@@ -64,7 +64,7 @@ export const stepPreviewMotion = (
 /** 大画面と同じ計算で見た目を出し、プレビューの枠に合わせて動きの大きさを縮める */
 export const toPreviewVisual = (
   motion: CreatureMotion,
-  commands: BasicCommand[],
+  commands: readonly Command[],
 ): PreviewVisual => {
   // ブロックがないときは、絵をそのまま見せる
   if (commands.length === 0) {

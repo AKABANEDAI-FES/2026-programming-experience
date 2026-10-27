@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ReleaseRequest } from 'shared';
-import { MOTIONS } from 'shared/release';
+import { MAX_COMMANDS, MOTIONS } from 'shared/release';
 import app from '../src/index.ts';
 import {
   RELEASE_RECORD_PREFIX,
@@ -307,7 +307,7 @@ test('不正JSONと画像・コマンド不正を保存前に拒否する', asyn
     harness.env,
   );
   const tooManyCommands = await requestRelease(
-    createBody(Array.from({ length: 6 }, () => ({ type: 'move', motion: 'jump' }))),
+    createBody(Array.from({ length: MAX_COMMANDS + 1 }, () => ({ type: 'move', motion: 'jump' }))),
     KEY,
     harness.env,
   );

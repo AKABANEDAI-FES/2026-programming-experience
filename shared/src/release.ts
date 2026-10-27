@@ -15,7 +15,7 @@ export interface SayCommand {
   text: string;
 }
 
-/** くりかえしの中に入れられるコマンド（くりかえしの中にくりかえしは入れない） */
+/** 実際に動いたり話したりするコマンド（くりかえしなどの入れ物ではないもの） */
 export type BasicCommand = MoveCommand | SayCommand;
 
 /** くりかえす回数の範囲 */
@@ -26,26 +26,39 @@ export interface RepeatCommand {
   type: 'repeat';
   /** MIN_REPEAT_TIMES 〜 MAX_REPEAT_TIMES の整数 */
   times: number;
-  commands: BasicCommand[];
+  /** 中のコマンド。くりかえしも入れられる（MAX_NESTING_DEPTH 段まで） */
+  commands: Command[];
 }
 
 export type Command = BasicCommand | RepeatCommand;
 
 /** 画面③で追加できるコマンドの上限（くりかえし自体と、その中のコマンドも数える） */
-export const MAX_COMMANDS = 5;
+export const MAX_COMMANDS = 10;
+
+/** くりかえしを重ねられる段の数（くりかえしの中のくりかえしまで） */
+export const MAX_NESTING_DEPTH = 2;
 
 /** ブロックの数を数える。くりかえしは、くりかえし自体と中のコマンドを合わせて数える */
 export const countCommands = (commands: readonly Command[]): number =>
   commands.reduce(
-    (count, command) => count + 1 + (command.type === 'repeat' ? command.commands.length : 0),
+    (count, command) =>
+      count + 1 + (command.type === 'repeat' ? countCommands(command.commands) : 0),
     0,
   );
 
-/** 再生するときの並びにする。くりかえしは中身を回数分だけ並べる */
+/** くりかえしが何段重なっているか（くりかえしがなければ 0） */
+export const nestingDepth = (commands: readonly Command[]): number =>
+  commands.reduce(
+    (depth, command) =>
+      command.type === 'repeat' ? Math.max(depth, 1 + nestingDepth(command.commands)) : depth,
+    0,
+  );
+
+/** 再生される順に並べる。くりかえしは中身を回数分だけ並べる（テストや確認用） */
 export const expandCommands = (commands: readonly Command[]): BasicCommand[] =>
   commands.flatMap((command) =>
     command.type === 'repeat'
-      ? Array.from({ length: command.times }, () => command.commands).flat()
+      ? Array.from({ length: command.times }, () => expandCommands(command.commands)).flat()
       : [command],
   );
 

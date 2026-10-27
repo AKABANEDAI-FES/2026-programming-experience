@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { MAX_COMMANDS, type Command, type ReleaseRequest, type ReleaseResponse } from 'shared';
-import { countCommands, expandCommands } from 'shared/release';
+import { countCommands } from 'shared/release';
 import inyaaGuide from '../assets/inyaa-guide.png';
 import {
   createPreviewMotion,
@@ -88,18 +88,16 @@ type CreaturePreviewProps = {
 function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
   const imageRef = useRef<HTMLImageElement>(null);
   const bubbleRef = useRef<HTMLParagraphElement>(null);
-  const commandsRef = useRef(expandCommands(commands));
+  const commandsRef = useRef(commands);
   const motionRef = useRef(createPreviewMotion());
 
   useEffect(() => {
-    const nextCommands = expandCommands(commands);
-
     // ワークスペースをクリックしただけなど、中身が変わっていなければ再生を続ける
-    if (isSameCommands(nextCommands, commandsRef.current)) {
+    if (isSameCommands(commands, commandsRef.current)) {
       return;
     }
 
-    commandsRef.current = nextCommands;
+    commandsRef.current = commands;
     motionRef.current = createPreviewMotion();
   }, [commands]);
 

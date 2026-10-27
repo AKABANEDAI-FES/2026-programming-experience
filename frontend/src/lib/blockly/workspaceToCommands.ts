@@ -1,4 +1,5 @@
 import {
+  MAX_NESTING_DEPTH,
   MAX_REPEAT_TIMES,
   MIN_REPEAT_TIMES,
   type BasicCommand,
@@ -77,17 +78,21 @@ const toRepeatTimes = (value: unknown): number => {
     : DEFAULT_REPEAT_TIMES;
 };
 
-const toCommand = (block: BlockState): Command | null => {
+/** depth は、このブロックを囲んでいるくりかえしの数（いちばん外なら 0） */
+const toCommand = (block: BlockState, depth = 0): Command | null => {
   if (isDisabled(block)) {
     return null;
   }
 
   if (block.type === REPEAT_BLOCK_TYPE) {
-    // くりかえしの中にくりかえしは入れない（画面でも外に出すが、念のため中身からも外す）
+    // くりかえしは MAX_NESTING_DEPTH 段まで（画面でも外に出すが、念のため中身からも外す）
+    if (depth >= MAX_NESTING_DEPTH) {
+      return null;
+    }
+
     const inner = chainOf(block.inputs?.[DO_INPUT_NAME]?.block)
-      .filter((child) => !isDisabled(child))
-      .map(toBasicCommand)
-      .filter((command): command is BasicCommand => command !== null);
+      .map((child) => toCommand(child, depth + 1))
+      .filter((command): command is Command => command !== null);
 
     return {
       type: 'repeat',
@@ -106,6 +111,6 @@ export const workspaceToCommands = (workspaceJson: unknown): Command[] => {
 
   return topBlocks
     .flatMap((topBlock) => chainOf(topBlock))
-    .map(toCommand)
+    .map((block) => toCommand(block))
     .filter((command): command is Command => command !== null);
 };

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { BasicCommand as Command } from 'shared';
+import type { Command } from 'shared';
 import {
   createPreviewMotion,
   isSameCommands,
@@ -49,7 +49,7 @@ test('セリフを再生し、終わったら次のコマンドへ進む', () =>
   ];
 
   assert.equal(toPreviewVisual(runFor(500, commands), commands).sayText, 'やあ');
-  assert.equal(runFor(4500, commands).commandIndex, 1);
+  assert.equal(runFor(4500, commands).cursor[0]?.index, 1);
 });
 
 test('はやく およぐ と ふくらむ も、その場で見てわかる動きになる', () => {

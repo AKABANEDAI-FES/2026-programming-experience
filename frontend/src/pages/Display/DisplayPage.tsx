@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Creature } from 'shared';
-import { expandCommands, MAX_CREATURES, type BasicCommand } from 'shared/release';
+import { MAX_CREATURES, type Command } from 'shared/release';
 import {
   addCreature,
   restoreCreatures,
@@ -67,8 +67,8 @@ export function DisplayPage() {
   // setState の更新関数は StrictMode で2回呼ばれるため、副作用を伴う追加処理は ref の値をもとに行う
   const creaturesRef = useRef<Creature[]>([]);
   const motions = useRef(new Map<string, CreatureMotion>());
-  // くりかえしは展開して、再生する順に並べたコマンドを持っておく
-  const commands = useRef(new Map<string, BasicCommand[]>());
+  // 組んだブロック（コマンドの木）をそのまま持ち、再生するときにたどる
+  const commands = useRef(new Map<string, Command[]>());
   const nodes = useRef(new Map<string, CreatureNode>());
   const visibleBoundsCache = useRef(new Map<string, VisibleArtworkBounds | null>());
   const bubbleLayerRef = useRef<HTMLDivElement>(null);
@@ -104,7 +104,7 @@ export function DisplayPage() {
         // ほかの作品となるべく重ならないよう、空いているところに出す
         const occupied = swimmingPositions(motions.current, creature.id);
         motions.current.set(creature.id, createMotion(bounds, Math.random, { entering, occupied }));
-        commands.current.set(creature.id, expandCommands(creature.commands));
+        commands.current.set(creature.id, creature.commands);
       }
     }
 

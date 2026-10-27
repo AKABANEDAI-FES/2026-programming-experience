@@ -1,4 +1,5 @@
-import type { BasicCommand, Motion } from 'shared';
+import type { BasicCommand, Command, Motion } from 'shared';
+import { commandAt, nextCursor, startCursor, type ProgramCursor } from './programCursor.ts';
 
 export const CREATURE_WIDTH = 220;
 export const CREATURE_HEIGHT = 132;
@@ -80,7 +81,9 @@ export type CreatureMotion = {
   facing: number;
   /** 上下のふわふわの位相（ラジアン） */
   bobPhase: number;
-  commandIndex: number;
+  /** 組んだブロックの、いま再生しているところ（まだ始めていなければ空） */
+  cursor: ProgramCursor;
+  /** いまの動き・セリフを始めてからの時間（ミリ秒） */
   commandElapsed: number;
   /** 登場して沈んでくる残り時間（ミリ秒）。0 なら登場は終わっている */
   enterRemaining: number;
@@ -117,16 +120,21 @@ const MOTION_DURATION_MS: Record<Motion, number> = {
 const commandActionMs = (command: BasicCommand): number =>
   command.type === 'say' ? SAY_DURATION_MS : MOTION_DURATION_MS[command.motion];
 
+/** いまの位置。まだ始めていない（空）ときは、最初の動き・セリフの位置 */
+const resolveCursor = (program: readonly Command[], cursor: ProgramCursor): ProgramCursor =>
+  cursor.length > 0 ? cursor : (startCursor(program) ?? []);
+
 /** 今やっている動き（休み時間なら null）と、その進み具合（0〜1） */
 const currentAction = (
-  motion: Pick<CreatureMotion, 'commandIndex' | 'commandElapsed'>,
-  commands: BasicCommand[],
+  motion: Pick<CreatureMotion, 'cursor' | 'commandElapsed'>,
+  program: readonly Command[],
 ): { command: BasicCommand; progress: number } | null => {
-  if (commands.length === 0) {
+  const command = commandAt(program, resolveCursor(program, motion.cursor));
+
+  if (command === null) {
     return null;
   }
 
-  const command = commands[motion.commandIndex % commands.length];
   const progress = motion.commandElapsed / commandActionMs(command);
 
   // 動き終わった後の休み時間は、普通に泳ぐだけにする
@@ -258,7 +266,7 @@ export const createMotion = (
     wanderRemaining: randomBetween(MIN_WANDER_MS, MAX_WANDER_MS, random),
     facing: direction,
     bobPhase: random() * Math.PI * 2,
-    commandIndex: 0,
+    cursor: [],
     commandElapsed: 0,
     enterRemaining: entering ? ENTER_DURATION_MS : 0,
     enterFromY: -CREATURE_HEIGHT - ENTER_START_ABOVE,
@@ -286,7 +294,7 @@ export const hasLeftScreen = (motion: CreatureMotion, bounds: Bounds): boolean =
 
 export const stepMotion = (
   motion: CreatureMotion,
-  commands: BasicCommand[],
+  commands: readonly Command[],
   deltaMs: number,
   bounds: Bounds,
   random: () => number = Math.random,
@@ -298,7 +306,7 @@ export const stepMotion = (
   const { minY, maxY } = verticalRange(bounds);
 
   let { x, y, vx, vy, targetVx, targetVy, wanderRemaining, facing, bobPhase } = motion;
-  let { commandIndex, commandElapsed } = motion;
+  let { cursor, commandElapsed } = motion;
   // 登場して沈んでくる間は、泳ぐ高さ（y）を決めたままにし、コマンドもまだ始めない
   const entering = motion.enterRemaining > 0;
   const enterRemaining = Math.max(0, motion.enterRemaining - deltaMs);
@@ -358,16 +366,27 @@ export const stepMotion = (
   facing += (targetFacing - facing) * Math.min(1, seconds * TURN_RATE);
   bobPhase = (bobPhase + seconds * BOB_SPEED) % (Math.PI * 2);
 
-  if (commands.length === 0) {
-    commandIndex = 0;
+  let current = commandAt(commands, cursor);
+
+  // 位置がまだ決まっていない、またはブロックと合わなくなっていたら、最初から再生する
+  if (current === null) {
+    cursor = startCursor(commands) ?? [];
+    commandElapsed = 0;
+    current = commandAt(commands, cursor);
+  }
+
+  if (current === null) {
+    // 再生するものがない
+    cursor = [];
     commandElapsed = 0;
   } else if (!entering && !leaving) {
-    commandIndex %= commands.length;
     commandElapsed += deltaMs;
 
-    while (commandElapsed >= commandDurationMs(commands[commandIndex])) {
-      commandElapsed -= commandDurationMs(commands[commandIndex]);
-      commandIndex = (commandIndex + 1) % commands.length;
+    // 動きと休みが終わったら、ブロックをたどって次の動き・セリフへ進む
+    while (current !== null && commandElapsed >= commandDurationMs(current)) {
+      commandElapsed -= commandDurationMs(current);
+      cursor = nextCursor(commands, cursor) ?? [];
+      current = commandAt(commands, cursor);
     }
   }
 
@@ -381,7 +400,7 @@ export const stepMotion = (
     wanderRemaining,
     facing,
     bobPhase,
-    commandIndex,
+    cursor,
     commandElapsed,
     enterRemaining,
     enterFromY: motion.enterFromY,
@@ -389,7 +408,7 @@ export const stepMotion = (
   };
 };
 
-export const toVisual = (motion: CreatureMotion, commands: BasicCommand[]): CreatureVisual => {
+export const toVisual = (motion: CreatureMotion, commands: readonly Command[]): CreatureVisual => {
   const entering = motion.enterRemaining > 0;
   const leaving = motion.leaveDirection !== 0;
   const action = entering || leaving ? null : currentAction(motion, commands);

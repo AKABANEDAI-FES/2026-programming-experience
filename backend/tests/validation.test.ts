@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { MAX_SAY_TEXT_LENGTH, MOTIONS } from 'shared/release';
+import { MAX_COMMANDS, MAX_SAY_TEXT_LENGTH, MOTIONS } from 'shared/release';
 import { validateReleaseRequest } from '../src/validation.ts';
 
 const createRequestWithSayText = (text: string) => ({
@@ -69,16 +69,32 @@ test('くりかえしの回数は 2〜5 の整数だけ受け付ける', () => {
   }
 });
 
-test('くりかえしの中にくりかえしは入れられない', () => {
+test('くりかえしの中のくりかえし（2 段）は受け付ける', () => {
   const result = validateReleaseRequest(
     requestWith([
       { type: 'repeat', times: 2, commands: [{ type: 'repeat', times: 2, commands: [jump] }] },
     ]),
   );
 
+  assert.equal(result.success, true);
+});
+
+test('くりかえしを 3 段重ねるとエラーにする', () => {
+  const result = validateReleaseRequest(
+    requestWith([
+      {
+        type: 'repeat',
+        times: 2,
+        commands: [
+          { type: 'repeat', times: 2, commands: [{ type: 'repeat', times: 2, commands: [jump] }] },
+        ],
+      },
+    ]),
+  );
+
   assert.deepEqual(result, {
     success: false,
-    message: 'commands[0].commands[0] くりかえしの中に、くりかえしは入れられません',
+    message: 'commands[0].commands[0].commands[0] くりかえしは2段までしか重ねられません',
   });
 });
 
@@ -91,12 +107,18 @@ test('くりかえしの中のコマンドも確認する', () => {
   assert.match(result.success ? '' : result.message, /^commands\[0\]\.commands\[0\]\.motion/);
 });
 
-test('くりかえしの中も合わせて5個を超えるとエラーにする', () => {
-  const four = { type: 'repeat', times: 2, commands: [jump, jump, jump] };
+test('くりかえしの中も合わせて上限の数を超えるとエラーにする', () => {
+  // くりかえし（1 個）＋ 中のくりかえし（1 個）＋ 中の中の動き 3 個 ＝ 5 個
+  const five = {
+    type: 'repeat',
+    times: 2,
+    commands: [{ type: 'repeat', times: 2, commands: [jump, jump, jump] }],
+  };
+  const rest = Array.from({ length: MAX_COMMANDS - 5 }, () => jump);
 
-  assert.equal(validateReleaseRequest(requestWith([four, jump])).success, true);
-  assert.deepEqual(validateReleaseRequest(requestWith([four, jump, jump])), {
+  assert.equal(validateReleaseRequest(requestWith([five, ...rest])).success, true);
+  assert.deepEqual(validateReleaseRequest(requestWith([five, ...rest, jump])), {
     success: false,
-    message: 'commands は、くりかえしの中も合わせて5個以下で指定してください',
+    message: `commands は、くりかえしの中も合わせて${MAX_COMMANDS}個以下で指定してください`,
   });
 });

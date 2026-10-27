@@ -1,5 +1,5 @@
 import * as Blockly from 'blockly';
-import { MAX_SAY_TEXT_LENGTH } from 'shared/release';
+import { MAX_NESTING_DEPTH, MAX_SAY_TEXT_LENGTH } from 'shared/release';
 import {
   DEFAULT_SAY_TEXT,
   DO_INPUT_NAME,
@@ -19,7 +19,7 @@ import {
 
 const SAY_TEXT_LIMIT_EXTENSION = 'say_text_limit';
 const SAY_PRESET_SWITCH_EXTENSION = 'say_preset_switch';
-const NO_NESTED_REPEAT_EXTENSION = 'no_nested_repeat';
+const LIMIT_NESTED_REPEAT_EXTENSION = 'limit_nested_repeat';
 
 export const defineCommandBlocks = () => {
   if (!Blockly.Extensions.isRegistered(SAY_TEXT_LIMIT_EXTENSION)) {
@@ -55,9 +55,9 @@ export const defineCommandBlocks = () => {
     });
   }
 
-  // くりかえしの中にくりかえしを入れたら、外に出す（子どもにわかりやすく、送るデータも単純にするため）
-  if (!Blockly.Extensions.isRegistered(NO_NESTED_REPEAT_EXTENSION)) {
-    Blockly.Extensions.register(NO_NESTED_REPEAT_EXTENSION, function (this: Blockly.Block) {
+  // くりかえしは MAX_NESTING_DEPTH 段まで重ねられる。それより深く入れたら外に出す（子どもが迷子にならないように）
+  if (!Blockly.Extensions.isRegistered(LIMIT_NESTED_REPEAT_EXTENSION)) {
+    Blockly.Extensions.register(LIMIT_NESTED_REPEAT_EXTENSION, function (this: Blockly.Block) {
       this.setOnChange(() => {
         // ドラッグしている途中は、落とすまで待つ
         const isDragging =
@@ -67,7 +67,16 @@ export const defineCommandBlocks = () => {
           return;
         }
 
-        if (this.getSurroundParent()?.type === REPEAT_BLOCK_TYPE) {
+        // このくりかえしが何段目か（外側のくりかえしの数 + 1）
+        let depth = 1;
+
+        for (let parent = this.getSurroundParent(); parent; parent = parent.getSurroundParent()) {
+          if (parent.type === REPEAT_BLOCK_TYPE) {
+            depth += 1;
+          }
+        }
+
+        if (depth > MAX_NESTING_DEPTH) {
           this.unplug(true);
           this.bumpNeighbours();
         }
@@ -92,7 +101,7 @@ export const defineCommandBlocks = () => {
       nextStatement: null,
       colour: '#E8963C',
       tooltip: 'なかに いれた ブロックを くりかえします',
-      extensions: [NO_NESTED_REPEAT_EXTENSION],
+      extensions: [LIMIT_NESTED_REPEAT_EXTENSION],
     },
     {
       type: MOVE_BLOCK_TYPE,

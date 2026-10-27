@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-// 大画面の動きは、くりかえしを展開した後のコマンド（BasicCommand）を受け取る
-import type { BasicCommand as Command } from 'shared';
+// 大画面の動きは、組んだブロック（コマンドの木）をそのまま受け取り、たどりながら再生する
+import type { Command } from 'shared';
 import {
   CREATURE_HEIGHT,
   CREATURE_WIDTH,
@@ -28,13 +28,16 @@ const motionAt = (overrides: Partial<CreatureMotion> = {}): CreatureMotion => ({
   wanderRemaining: 10_000,
   facing: 1,
   bobPhase: 0,
-  commandIndex: 0,
+  cursor: [],
   commandElapsed: 0,
   enterRemaining: 0,
   enterFromY: -CREATURE_HEIGHT - 40,
   leaveDirection: 0,
   ...overrides,
 });
+
+/** いちばん外の段で、何番目のコマンドを再生しているか */
+const playingIndex = (motion: CreatureMotion) => motion.cursor[0]?.index;
 
 const runFrames = (motion: CreatureMotion, frames: number, commands: Command[] = []) => {
   let current = motion;
@@ -104,11 +107,11 @@ test('時間が経つと次のコマンドへ進む', () => {
   ];
 
   // ジャンプ 1000ms + 休み 1500ms の後に次へ進む
-  assert.equal(stepMotion(motionAt(), commands, 2400, BOUNDS).commandIndex, 0);
+  assert.equal(playingIndex(stepMotion(motionAt(), commands, 2400, BOUNDS)), 0);
 
   const next = stepMotion(motionAt(), commands, 2700, BOUNDS);
 
-  assert.equal(next.commandIndex, 1);
+  assert.equal(playingIndex(next), 1);
   assert.equal(next.commandElapsed, 200);
 });
 
@@ -119,19 +122,19 @@ test('最後のコマンドまで進むと先頭へ戻る', () => {
   ];
 
   const next = stepMotion(
-    motionAt({ commandIndex: 1, commandElapsed: 3400 }),
+    motionAt({ cursor: [{ index: 1, iteration: 0 }], commandElapsed: 3400 }),
     commands,
     200,
     BOUNDS,
   );
 
-  assert.equal(next.commandIndex, 0);
+  assert.equal(playingIndex(next), 0);
 });
 
 test('コマンドがない場合も泳ぎ続ける', () => {
   const next = stepMotion(motionAt(), [], 500, BOUNDS);
 
-  assert.equal(next.commandIndex, 0);
+  assert.deepEqual(next.cursor, []);
   assert.equal(next.commandElapsed, 0);
   assert.equal(next.x, 330);
 });
@@ -280,7 +283,7 @@ test('どの動きも、終わったあとは次のコマンドへ進む', () =>
     ];
     const next = stepMotion(motionAt(), commands, 5000, BOUNDS);
 
-    assert.equal(next.commandIndex, 1);
+    assert.equal(playingIndex(next), 1);
   }
 });
 
