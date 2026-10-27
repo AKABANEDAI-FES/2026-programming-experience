@@ -29,6 +29,30 @@
   border-radius: 12px;
   /* 外側が透明な作品でも、白い部分がわかるように薄い水色を敷く */
   background: var(--sea-50);
+  transition: box-shadow 0.3s ease;
+}
+
+/* 「はしに いる」を試すときは、枠の左右のふちを光らせて、端にいることを見立てる */
+.creatureFrame[data-at-edge] {
+  box-shadow:
+    inset 10px 0 0 rgb(242 113 28 / 55%),
+    inset -10px 0 0 rgb(242 113 28 / 55%);
+}
+
+/* 「なかまが ちかくに いる」を試すときに、作品のうしろを右から左へ通りかかる、なかまの影 */
+.previewFriend {
+  position: absolute;
+  top: 50%;
+  width: 90px;
+  height: 54px;
+  margin: -27px 0 0 -45px;
+  border-radius: 50% 40% 40% 50%;
+  background: rgb(31 111 184 / 25%);
+  pointer-events: none;
+}
+
+.previewFriend[hidden] {
+  display: none;
 }
 
 /* プレビューで動かすので、ジャンプやふくらむでも枠からはみ出さないよう小さめに置く */

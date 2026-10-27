@@ -6,6 +6,7 @@ import {
   CREATURE_HEIGHT,
   CREATURE_WIDTH,
   ENTER_DURATION_MS,
+  conditionCheckFor,
   createMotion,
   separationFrom,
   hasLeftScreen,
@@ -412,4 +413,79 @@ test('新しい作品は、ほかの作品が集まっている場所を避け�
   const motion = createMotion(BOUNDS, random, { occupied });
 
   assert.ok(motion.x > 300);
+});
+
+test('なかまが ちかくに いる：作品 1.5 個分より近くにほかの作品がいるときだけ合う', () => {
+  const self = { x: 300, y: 200 };
+  const check = (neighbors: { x: number; y: number }[]) =>
+    conditionCheckFor(self, neighbors, BOUNDS)('near_friend');
+
+  assert.equal(check([]), false);
+  assert.equal(check([{ x: 300 + CREATURE_WIDTH, y: 200 }]), true);
+  assert.equal(check([{ x: 300 + CREATURE_WIDTH * 2, y: 200 }]), false);
+  assert.equal(check([{ x: 300, y: 200 + CREATURE_HEIGHT * 2 }]), false);
+});
+
+test('はしに いる：左右と下の端、上の浅い端のそばで合う', () => {
+  const atEdge = (x: number, y: number) => conditionCheckFor({ x, y }, [], BOUNDS)('at_edge');
+
+  assert.equal(atEdge(400, 250), false);
+  assert.equal(atEdge(10, 250), true);
+  assert.equal(atEdge(BOUNDS.width - CREATURE_WIDTH - 10, 250), true);
+  assert.equal(atEdge(400, BOUNDS.height - CREATURE_HEIGHT), true);
+});
+
+test('○かいに 1かい：その確率より小さい数が出たときに合う', () => {
+  const check = (value: number) => conditionCheckFor({ x: 0, y: 0 }, [], BOUNDS, () => value);
+
+  assert.equal(check(0.2)('chance_25'), true);
+  assert.equal(check(0.3)('chance_25'), false);
+  assert.equal(check(0.49)('chance_50'), true);
+  assert.equal(check(0.7)('chance_75'), true);
+  assert.equal(check(0.8)('chance_75'), false);
+});
+
+test('「もし」は大画面でも、近くの作品を見て分かれ道を選ぶ', () => {
+  const program: Command[] = [
+    {
+      type: 'if',
+      condition: 'near_friend',
+      thenCommands: [{ type: 'say', text: 'なかま' }],
+      elseCommands: [{ type: 'say', text: 'ひとり' }],
+    },
+  ];
+  const step = (neighbors: { x: number; y: number }[]) =>
+    toVisual(
+      stepMotion(motionAt(), program, FRAME_MS, BOUNDS, () => 0.5, neighbors),
+      program,
+    ).sayText;
+
+  assert.equal(step([{ x: 320, y: 210 }]), 'なかま');
+  assert.equal(step([]), 'ひとり');
+});
+
+test('再生するものがないときは、休んでから調べ直す', () => {
+  const program: Command[] = [
+    {
+      type: 'if',
+      condition: 'chance_50',
+      thenCommands: [],
+      elseCommands: [{ type: 'move', motion: 'jump' }],
+    },
+  ];
+  let value = 0.1;
+  let motion = stepMotion(motionAt(), program, FRAME_MS, BOUNDS, () => value);
+
+  assert.deepEqual(motion.cursor, []);
+  assert.ok(motion.commandElapsed < 0);
+
+  value = 0.9;
+  motion = runFrames(motion, 1, program);
+  assert.deepEqual(motion.cursor, []);
+
+  for (let i = 0; i < 200 && motion.cursor.length === 0; i += 1) {
+    motion = stepMotion(motion, program, FRAME_MS, BOUNDS, () => value);
+  }
+
+  assert.equal(playingIndex(motion), 0);
 });

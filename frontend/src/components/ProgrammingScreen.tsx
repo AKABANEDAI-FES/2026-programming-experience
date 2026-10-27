@@ -3,8 +3,10 @@ import { MAX_COMMANDS, type Command, type ReleaseRequest, type ReleaseResponse }
 import { countCommands } from 'shared/release';
 import inyaaGuide from '../assets/inyaa-guide.png';
 import {
+  conditionsUsed,
   createPreviewMotion,
   isSameCommands,
+  previewWorldAt,
   stepPreviewMotion,
   toPreviewVisual,
 } from '../lib/display/previewMotion';
@@ -86,10 +88,14 @@ type CreaturePreviewProps = {
  * ブロックを変えたら、最初から再生し直す。
  */
 function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
+  const frameRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const bubbleRef = useRef<HTMLParagraphElement>(null);
+  const friendRef = useRef<HTMLSpanElement>(null);
   const commandsRef = useRef(commands);
   const motionRef = useRef(createPreviewMotion());
+  // 「もし」の条件を試すための見立ての時計（ブロックを変えたら 0 に戻す）
+  const worldClockRef = useRef(0);
 
   useEffect(() => {
     // ワークスペースをクリックしただけなど、中身が変わっていなければ再生を続ける
@@ -99,6 +105,7 @@ function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
 
     commandsRef.current = commands;
     motionRef.current = createPreviewMotion();
+    worldClockRef.current = 0;
   }, [commands]);
 
   useEffect(() => {
@@ -107,11 +114,35 @@ function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
     const tick = (now: number) => {
       const delta = previous === null ? 0 : Math.min(now - previous, MAX_PREVIEW_DELTA_MS);
       previous = now;
+      worldClockRef.current += delta;
 
-      motionRef.current = stepPreviewMotion(motionRef.current, commandsRef.current, delta);
+      // なかまやはしの見立ては、その条件を使っているときだけ見せる
+      const used = conditionsUsed(commandsRef.current);
+      const world = previewWorldAt(worldClockRef.current);
+      const shownWorld = {
+        friendNear: used.has('near_friend') && world.friendNear,
+        friendProgress: used.has('near_friend') ? world.friendProgress : null,
+        atEdge: used.has('at_edge') && world.atEdge,
+      };
+
+      motionRef.current = stepPreviewMotion(
+        motionRef.current,
+        commandsRef.current,
+        delta,
+        shownWorld,
+      );
       const visual = toPreviewVisual(motionRef.current, commandsRef.current);
       const image = imageRef.current;
       const bubble = bubbleRef.current;
+      const friend = friendRef.current;
+
+      if (friend !== null) {
+        friend.hidden = shownWorld.friendProgress === null;
+        // 右から左へ、作品のうしろを通りかかる
+        friend.style.left = `${100 - (shownWorld.friendProgress ?? 0) * 100}%`;
+      }
+
+      frameRef.current?.toggleAttribute('data-at-edge', shownWorld.atEdge);
 
       if (image !== null) {
         image.style.transform = `translate(${visual.offsetX}px, ${visual.offsetY}px) rotate(${visual.rotation}deg) scale(${visual.scale})`;
@@ -131,7 +162,9 @@ function CreaturePreview({ imageData, commands }: CreaturePreviewProps) {
   }, []);
 
   return (
-    <div className={styles.creatureFrame}>
+    <div ref={frameRef} className={styles.creatureFrame}>
+      {/* 「なかまが ちかくに いる」を試すときに通りかかる、なかまの影 */}
+      <span ref={friendRef} className={styles.previewFriend} aria-hidden="true" hidden />
       <p ref={bubbleRef} className={styles.previewBubble} hidden />
       <img ref={imageRef} className={styles.creatureImage} src={imageData} alt="かいた え" />
     </div>

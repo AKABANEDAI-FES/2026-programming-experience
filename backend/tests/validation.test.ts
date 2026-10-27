@@ -94,7 +94,7 @@ test('くりかえしを 3 段重ねるとエラーにする', () => {
 
   assert.deepEqual(result, {
     success: false,
-    message: 'commands[0].commands[0].commands[0] くりかえしは2段までしか重ねられません',
+    message: 'commands[0].commands[0].commands[0] くりかえしや「もし」は2段までしか重ねられません',
   });
 });
 
@@ -121,4 +121,79 @@ test('くりかえしの中も合わせて上限の数を超えるとエラー�
     success: false,
     message: `commands は、くりかえしの中も合わせて${MAX_COMMANDS}個以下で指定してください`,
   });
+});
+
+const say = { type: 'say', text: 'やっほー' };
+
+test('「もし」を受け付ける（そうでなければ が空でもよい）', () => {
+  for (const condition of ['near_friend', 'at_edge', 'chance_25', 'chance_50', 'chance_75']) {
+    const result = validateReleaseRequest(
+      requestWith([{ type: 'if', condition, thenCommands: [jump], elseCommands: [] }]),
+    );
+
+    assert.equal(result.success, true, condition);
+  }
+});
+
+test('知らない条件の「もし」はエラーにする', () => {
+  const result = validateReleaseRequest(
+    requestWith([{ type: 'if', condition: 'raining', thenCommands: [jump], elseCommands: [] }]),
+  );
+
+  assert.equal(result.success, false);
+  assert.match(result.success ? '' : result.message, /^commands\[0\]\.condition/);
+});
+
+test('「もし」の中が配列でなければエラーにする', () => {
+  const result = validateReleaseRequest(
+    requestWith([{ type: 'if', condition: 'at_edge', thenCommands: [jump] }]),
+  );
+
+  assert.deepEqual(result, {
+    success: false,
+    message: 'commands[0].elseCommands は配列で指定してください',
+  });
+});
+
+test('「もし」の中のコマンドも確認する', () => {
+  const result = validateReleaseRequest(
+    requestWith([
+      { type: 'if', condition: 'at_edge', thenCommands: [], elseCommands: [{ type: 'move' }] },
+    ]),
+  );
+
+  assert.equal(result.success, false);
+  assert.match(result.success ? '' : result.message, /^commands\[0\]\.elseCommands\[0\]\.motion/);
+});
+
+test('くりかえしと「もし」を合わせて 3 段重ねるとエラーにする', () => {
+  const twoLevels = {
+    type: 'if',
+    condition: 'chance_50',
+    thenCommands: [{ type: 'repeat', times: 2, commands: [jump] }],
+    elseCommands: [say],
+  };
+
+  assert.equal(validateReleaseRequest(requestWith([twoLevels])).success, true);
+  assert.deepEqual(
+    validateReleaseRequest(requestWith([{ type: 'repeat', times: 2, commands: [twoLevels] }])),
+    {
+      success: false,
+      message:
+        'commands[0].commands[0].thenCommands[0] くりかえしや「もし」は2段までしか重ねられません',
+    },
+  );
+});
+
+test('「もし」の中は、合ったとき・合わなかったときの両方を数に入れる', () => {
+  const ifCommand = {
+    type: 'if',
+    condition: 'near_friend',
+    thenCommands: [jump, jump],
+    elseCommands: [say, say],
+  };
+  const rest = Array.from({ length: MAX_COMMANDS - 5 }, () => jump);
+
+  assert.equal(validateReleaseRequest(requestWith([ifCommand, ...rest])).success, true);
+  assert.equal(validateReleaseRequest(requestWith([ifCommand, ...rest, jump])).success, false);
 });

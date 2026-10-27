@@ -55,3 +55,35 @@ test('くりかえしが何段重なっているかを数える', () => {
     2,
   );
 });
+
+const ifNearFriend: Command = {
+  type: 'if',
+  condition: 'near_friend',
+  thenCommands: [jump],
+  elseCommands: [hello, { type: 'repeat', times: 2, commands: [jump] }],
+};
+
+test('「もし」は、「もし」自体と両方の中身を合わせて数える', () => {
+  // もし 1 ＋ jump 1 ＋ hello 1 ＋ くりかえし 1 ＋ jump 1 ＝ 5
+  assert.equal(countCommands([ifNearFriend]), 5);
+});
+
+test('「もし」もくりかえしと合わせて段の数に入れる', () => {
+  assert.equal(nestingDepth([ifNearFriend]), 2);
+  assert.equal(
+    nestingDepth([{ type: 'if', condition: 'at_edge', thenCommands: [], elseCommands: [] }]),
+    1,
+  );
+});
+
+test('「もし」は、条件に合えば合ったときの中身を、合わなければそうでなければの中身を並べる', () => {
+  assert.deepEqual(
+    expandCommands([ifNearFriend], () => true),
+    [jump],
+  );
+  assert.deepEqual(
+    expandCommands([ifNearFriend], () => false),
+    [hello, jump, jump],
+  );
+  assert.deepEqual(expandCommands([ifNearFriend]), [hello, jump, jump]);
+});

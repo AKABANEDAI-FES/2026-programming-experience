@@ -162,3 +162,69 @@ test('選ぶところがない古い形のセリフは、打った文字にす�
     { type: 'say', text: 'こんばんは' },
   ]);
 });
+
+const ifBlock = (
+  condition: string,
+  thenBlock: unknown,
+  elseBlock: unknown,
+  rest: Record<string, unknown> = {},
+) => ({
+  type: 'if_command',
+  fields: { CONDITION: condition },
+  inputs: {
+    ...(thenBlock === undefined ? {} : { THEN: { block: thenBlock } }),
+    ...(elseBlock === undefined ? {} : { ELSE: { block: elseBlock } }),
+  },
+  ...rest,
+});
+
+test('「もし」ブロックを、合ったとき・合わなかったときの中身ごと変換する', () => {
+  const json = workspace(
+    ifBlock('at_edge', moveBlock('spin'), sayBlock('やあ', { next: { block: moveBlock('jump') } })),
+  );
+
+  assert.deepEqual(workspaceToCommands(json), [
+    {
+      type: 'if',
+      condition: 'at_edge',
+      thenCommands: [{ type: 'move', motion: 'spin' }],
+      elseCommands: [
+        { type: 'say', text: 'やあ' },
+        { type: 'move', motion: 'jump' },
+      ],
+    },
+  ]);
+});
+
+test('中が空の「もし」は、中身なしで変換する', () => {
+  assert.deepEqual(workspaceToCommands(workspace(ifBlock('chance_50', undefined, undefined))), [
+    { type: 'if', condition: 'chance_50', thenCommands: [], elseCommands: [] },
+  ]);
+});
+
+test('知らない条件の「もし」は、標準の条件にする', () => {
+  assert.deepEqual(workspaceToCommands(workspace(ifBlock('raining', undefined, undefined))), [
+    { type: 'if', condition: 'near_friend', thenCommands: [], elseCommands: [] },
+  ]);
+});
+
+test('くりかえしと「もし」は合わせて 2 段まで。3 段目は中身ごと含めない', () => {
+  const json = workspace(
+    repeatBlock('2', ifBlock('at_edge', repeatBlock('2', moveBlock('jump')), moveBlock('spin'))),
+  );
+
+  assert.deepEqual(workspaceToCommands(json), [
+    {
+      type: 'repeat',
+      times: 2,
+      commands: [
+        {
+          type: 'if',
+          condition: 'at_edge',
+          thenCommands: [],
+          elseCommands: [{ type: 'move', motion: 'spin' }],
+        },
+      ],
+    },
+  ]);
+});
