@@ -97,7 +97,7 @@ function BlocklyOverlay({ slotRef, scale, disabled, onCommandsChange }: BlocklyO
             fontSize: `${32 * scale}px`,
           }}
         >
-          ここに ブロックを おいてね
+          <span className={styles.workspaceGuideLabel}>ここに ブロックを おいてね</span>
         </div>
       )}
     </div>

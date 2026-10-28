@@ -186,6 +186,15 @@
   pointer-events: none;
 }
 
+.workspaceGuideLabel {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.25em 0.5em;
+  border: 0.1em dotted rgb(31 111 184 / 70%);
+  box-sizing: border-box;
+}
+
 /*
  * はみ出しは切らない。▼ の選択肢（ドロップダウン）は Blockly の中に出るので、
  * ここで切ると、画面が小さいときに選択肢が枠からはみ出した分だけ切れて選べなくなる
