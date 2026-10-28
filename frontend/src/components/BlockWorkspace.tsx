@@ -8,6 +8,7 @@ import { removeUnusedContextMenuItems } from '../lib/blockly/contextMenu';
 import { KIDS_FONT, KIDS_THEME } from '../lib/blockly/theme';
 import { TOOLBOX } from '../lib/blockly/toolbox';
 import { workspaceToCommands } from '../lib/blockly/workspaceToCommands';
+import { isWorkspaceEmpty } from '../lib/blockly/workspaceState';
 import styles from './BlockWorkspace.module.css';
 
 Blockly.setLocale(ja as unknown as Record<string, string>);
@@ -17,22 +18,46 @@ removeUnusedContextMenuItems();
 /** 1920×1080 の舞台のときのブロックの大きさ（ブロックの一覧がスクロールせずに収まる大きさ） */
 const BASE_BLOCK_SCALE = 1.45;
 
+type WorkspaceBounds = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 type BlockWorkspaceProps = {
   onCommandsChange?: (commands: Command[]) => void;
+  onWorkspaceEmptyChange?: (isEmpty: boolean) => void;
+  onWorkspaceBoundsChange?: (bounds: WorkspaceBounds) => void;
   /** 舞台の縮め具合。Blockly 自体は縮めずに置くため、ブロックの大きさだけを合わせる */
   scale?: number;
 };
 
-export function BlockWorkspace({ onCommandsChange, scale = 1 }: BlockWorkspaceProps) {
+export function BlockWorkspace({
+  onCommandsChange,
+  onWorkspaceEmptyChange,
+  onWorkspaceBoundsChange,
+  scale = 1,
+}: BlockWorkspaceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const onCommandsChangeRef = useRef(onCommandsChange);
+  const onWorkspaceEmptyChangeRef = useRef(onWorkspaceEmptyChange);
+  const onWorkspaceBoundsChangeRef = useRef(onWorkspaceBoundsChange);
   // Blockly はフォントの読み込みを待ってから作るため、作る時点の最新の倍率を ref で渡す
   const scaleRef = useRef(scale);
 
   useEffect(() => {
     onCommandsChangeRef.current = onCommandsChange;
   }, [onCommandsChange]);
+
+  useEffect(() => {
+    onWorkspaceEmptyChangeRef.current = onWorkspaceEmptyChange;
+  }, [onWorkspaceEmptyChange]);
+
+  useEffect(() => {
+    onWorkspaceBoundsChangeRef.current = onWorkspaceBoundsChange;
+  }, [onWorkspaceBoundsChange]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -59,14 +84,28 @@ export function BlockWorkspace({ onCommandsChange, scale = 1 }: BlockWorkspacePr
       });
       workspaceRef.current = workspace;
 
+      const reportWorkspaceBounds = () => {
+        const { absoluteLeft, absoluteTop, viewWidth, viewHeight } = workspace.getMetrics();
+        onWorkspaceBoundsChangeRef.current?.({
+          left: absoluteLeft,
+          top: absoluteTop,
+          width: viewWidth,
+          height: viewHeight,
+        });
+      };
+
       const handleChange = () => {
+        onWorkspaceEmptyChangeRef.current?.(isWorkspaceEmpty(workspace.getAllBlocks(false)));
         const json = Blockly.serialization.workspaces.save(workspace);
         onCommandsChangeRef.current?.(workspaceToCommands(json));
       };
       workspace.addChangeListener(handleChange);
+      handleChange();
+      reportWorkspaceBounds();
 
       const resizeObserver = new ResizeObserver(() => {
         Blockly.svgResize(workspace);
+        reportWorkspaceBounds();
       });
       resizeObserver.observe(container);
 
@@ -106,6 +145,13 @@ export function BlockWorkspace({ onCommandsChange, scale = 1 }: BlockWorkspacePr
     workspace.setScale(BASE_BLOCK_SCALE * scale);
     // 一覧（フライアウト）の大きさは workspace のズームとは別なので、作り直して合わせる
     workspace.getFlyout()?.reflow();
+    const { absoluteLeft, absoluteTop, viewWidth, viewHeight } = workspace.getMetrics();
+    onWorkspaceBoundsChangeRef.current?.({
+      left: absoluteLeft,
+      top: absoluteTop,
+      width: viewWidth,
+      height: viewHeight,
+    });
   }, [scale]);
 
   return (

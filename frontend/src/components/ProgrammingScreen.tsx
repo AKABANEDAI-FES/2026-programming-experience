@@ -31,6 +31,13 @@ type ProgrammingScreenProps = {
   onRestart: () => void;
 };
 
+type WorkspaceBounds = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 type BlocklyOverlayProps = {
   slotRef: RefObject<HTMLDivElement | null>;
   scale: number;
@@ -44,6 +51,8 @@ type BlocklyOverlayProps = {
  */
 function BlocklyOverlay({ slotRef, scale, disabled, onCommandsChange }: BlocklyOverlayProps) {
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [isWorkspaceEmpty, setIsWorkspaceEmpty] = useState(true);
+  const [workspaceBounds, setWorkspaceBounds] = useState<WorkspaceBounds | null>(null);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -70,7 +79,27 @@ function BlocklyOverlay({ slotRef, scale, disabled, onCommandsChange }: BlocklyO
       }
       inert={disabled}
     >
-      <BlockWorkspace onCommandsChange={onCommandsChange} scale={scale} />
+      <BlockWorkspace
+        onCommandsChange={onCommandsChange}
+        onWorkspaceEmptyChange={setIsWorkspaceEmpty}
+        onWorkspaceBoundsChange={setWorkspaceBounds}
+        scale={scale}
+      />
+      {isWorkspaceEmpty && workspaceBounds !== null && (
+        <div
+          className={styles.workspaceGuide}
+          style={{
+            left: workspaceBounds.left,
+            top: workspaceBounds.top,
+            width: workspaceBounds.width,
+            height: workspaceBounds.height,
+            borderWidth: `${3 * scale}px`,
+            fontSize: `${32 * scale}px`,
+          }}
+        >
+          ここに ブロックを おいてね
+        </div>
+      )}
     </div>
   );
 }
