@@ -133,7 +133,7 @@ export const defineCommandBlocks = () => {
     },
     {
       type: MOVE_BLOCK_TYPE,
-      message0: '%1',
+      message0: '%1ように うごく',
       args0: [
         {
           type: 'field_dropdown',
