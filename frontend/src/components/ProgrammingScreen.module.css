@@ -173,6 +173,97 @@
 }
 
 /*
+ * 置き方の案内。一覧の先頭のブロックの上に重ね、手がつまんで真ん中まで運ぶ動きをくりかえす。
+ * 運ぶ距離は --demo-dx・--demo-dy で受け取る。
+ * Blockly の一覧（z-index 20）とスクロールバー（30）より手前、▼ の選択肢（1000）より奥に出す
+ */
+.placementDemo {
+  position: absolute;
+  z-index: 40;
+  pointer-events: none;
+  animation: placement-demo-carry 3.2s ease-in-out infinite;
+}
+
+/* 運んでいるブロックは、つまんでいる間だけ少し透かして出す */
+.demoBlock {
+  display: block;
+  overflow: visible;
+  opacity: 0;
+  filter: drop-shadow(0 6px 8px rgb(23 48 90 / 30%));
+  animation: placement-demo-block 3.2s ease-in-out infinite;
+}
+
+.demoHand {
+  position: absolute;
+  color: #17305a;
+  fill: #fff;
+  filter: drop-shadow(0 3px 4px rgb(23 48 90 / 35%));
+  animation: placement-demo-hand 3.2s ease-in-out infinite;
+}
+
+@keyframes placement-demo-carry {
+  0%,
+  25% {
+    transform: translate(0, 0);
+  }
+
+  70%,
+  100% {
+    transform: translate(var(--demo-dx), var(--demo-dy));
+  }
+}
+
+@keyframes placement-demo-block {
+  0%,
+  20% {
+    opacity: 0;
+  }
+
+  25%,
+  80% {
+    opacity: 0.85;
+  }
+
+  95%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 手は出てきて、ブロックを押してつまみ、運んで、はなしたら消える */
+@keyframes placement-demo-hand {
+  0% {
+    opacity: 0;
+    transform: translate(30%, 30%);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  20% {
+    transform: scale(0.85);
+  }
+
+  75% {
+    opacity: 1;
+    transform: scale(0.85);
+  }
+
+  82% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  95%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/*
  * はみ出しは切らない。▼ の選択肢（ドロップダウン）は Blockly の中に出るので、
  * ここで切ると、画面が小さいときに選択肢が枠からはみ出した分だけ切れて選べなくなる
  */
