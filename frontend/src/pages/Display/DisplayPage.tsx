@@ -238,6 +238,8 @@ export function DisplayPage() {
           node.highlight.style.opacity = visual.entering ? '0' : `${next / HIGHLIGHT_DURATION_MS}`;
           if (next === 0) {
             highlights.current.delete(id);
+          } else {
+            highlights.current.set(id, next);
           }
         } else {
           node.highlight.style.opacity = '0';
