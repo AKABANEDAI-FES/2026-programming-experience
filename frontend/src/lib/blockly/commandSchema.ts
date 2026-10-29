@@ -29,13 +29,16 @@ export const ELSE_INPUT_NAME = 'ELSE';
 
 export const DEFAULT_CONDITION: Condition = 'near_friend';
 
-/** 「もし」の条件の選択肢 */
+/**
+ * 「もし」の条件の選択肢。「もし ◯◯ なら」と読んで文になるようにする。
+ * 確率は「くじ」にたとえ、当たりやすさの違いがわかるよう回数も添える
+ */
 export const CONDITION_OPTIONS: [label: string, condition: Condition][] = [
   ['なかまが ちかくに いる', 'near_friend'],
   ['はしに いる', 'at_edge'],
-  ['4かいに 1かい', 'chance_25'],
-  ['2かいに 1かい', 'chance_50'],
-  ['4かいに 3かい', 'chance_75'],
+  ['くじが あたる（4かいに 1かい）', 'chance_25'],
+  ['くじが あたる（2かいに 1かい）', 'chance_50'],
+  ['くじが あたる（4かいに 3かい）', 'chance_75'],
 ];
 
 export const DEFAULT_REPEAT_TIMES = 3;
