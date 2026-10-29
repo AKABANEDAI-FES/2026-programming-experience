@@ -34,15 +34,11 @@ export type PlacementGuide = {
   rendererClassName: string;
 };
 
-/** 空のワークスペースなら、一覧の先頭のブロックを真ん中まで運ぶ案内を作る。ブロックがあれば null */
+/** 一覧の先頭のブロックを、ワークスペースの真ん中まで運ぶ案内を作る */
 const measurePlacementGuide = (
   workspace: Blockly.WorkspaceSvg,
   container: HTMLElement,
 ): PlacementGuide | null => {
-  if (workspace.getAllBlocks(false).length > 0) {
-    return null;
-  }
-
   const flyoutBlock = workspace.getFlyout()?.getWorkspace().getTopBlocks(true)[0];
 
   if (flyoutBlock === undefined) {
@@ -77,7 +73,7 @@ const measurePlacementGuide = (
 
 type BlockWorkspaceProps = {
   onCommandsChange?: (commands: Command[]) => void;
-  /** 置き方の案内が変わったとき（ブロックを置いた・画面の大きさが変わったなど）に呼ぶ */
+  /** 置き方の案内が変わったときに呼ぶ。最初のブロックを置いたら、それからは null */
   onPlacementGuideChange?: (guide: PlacementGuide | null) => void;
   /** 舞台の縮め具合。Blockly 自体は縮めずに置くため、ブロックの大きさだけを合わせる */
   scale?: number;
@@ -92,6 +88,8 @@ export function BlockWorkspace({
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const onCommandsChangeRef = useRef(onCommandsChange);
   const onPlacementGuideChangeRef = useRef(onPlacementGuideChange);
+  // 一度ブロックを置けたら置き方はわかっているので、あとで空に戻しても案内はもう出さない
+  const hasPlacedBlockRef = useRef(false);
   // Blockly はフォントの読み込みを待ってから作るため、作る時点の最新の倍率を ref で渡す
   const scaleRef = useRef(scale);
 
@@ -128,8 +126,15 @@ export function BlockWorkspace({
       });
       workspaceRef.current = workspace;
 
-      const reportPlacementGuide = () =>
-        onPlacementGuideChangeRef.current?.(measurePlacementGuide(workspace, container));
+      const reportPlacementGuide = () => {
+        if (workspace.getAllBlocks(false).length > 0) {
+          hasPlacedBlockRef.current = true;
+        }
+
+        onPlacementGuideChangeRef.current?.(
+          hasPlacedBlockRef.current ? null : measurePlacementGuide(workspace, container),
+        );
+      };
 
       const handleChange = () => {
         const json = Blockly.serialization.workspaces.save(workspace);
@@ -182,7 +187,10 @@ export function BlockWorkspace({
     workspace.setScale(BASE_BLOCK_SCALE * scale);
     // 一覧（フライアウト）の大きさは workspace のズームとは別なので、作り直して合わせる
     workspace.getFlyout()?.reflow();
-    onPlacementGuideChangeRef.current?.(measurePlacementGuide(workspace, container));
+
+    if (!hasPlacedBlockRef.current) {
+      onPlacementGuideChangeRef.current?.(measurePlacementGuide(workspace, container));
+    }
   }, [scale]);
 
   return (
