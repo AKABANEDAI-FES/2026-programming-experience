@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
+import { Pointer } from 'lucide-react';
 import { MAX_COMMANDS, type Command, type ReleaseRequest, type ReleaseResponse } from 'shared';
 import { countCommands } from 'shared/release';
 import inyaaGuide from '../assets/inyaa-guide.png';
@@ -18,7 +27,7 @@ import {
   shouldRecoverIdempotencyKey,
   type SubmissionAttempt,
 } from '../lib/release-submission';
-import { BlockWorkspace } from './BlockWorkspace';
+import { BlockWorkspace, type PlacementGuide } from './BlockWorkspace';
 import { RestartControl } from './RestartControl';
 import styles from './ProgrammingScreen.module.css';
 import { StageScreen } from './StageScreen';
@@ -31,12 +40,43 @@ type ProgrammingScreenProps = {
   onRestart: () => void;
 };
 
-type WorkspaceBounds = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
+type PlacementDemoProps = {
+  guide: PlacementGuide;
 };
+
+/** ワークスペースが空のあいだ、手がブロックを一覧からワークスペースの真ん中まで運んで見せる */
+function PlacementDemo({ guide }: PlacementDemoProps) {
+  const { from, to } = guide;
+
+  return (
+    <div
+      className={styles.placementDemo}
+      style={
+        {
+          left: from.left,
+          top: from.top,
+          '--demo-dx': `${to.left - from.left}px`,
+          '--demo-dy': `${to.top - from.top}px`,
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
+      <svg
+        className={`${styles.demoBlock} ${guide.rendererClassName}`}
+        width={from.width}
+        height={from.height}
+        viewBox={guide.viewBox}
+        // 自分たちで定義したブロックを Blockly が描いたものを写すだけなので、そのまま入れてよい
+        dangerouslySetInnerHTML={{ __html: guide.blockMarkup }}
+      />
+      <Pointer
+        className={styles.demoHand}
+        style={{ left: from.width * 0.4, top: from.height * 0.45 }}
+        size={from.height * 1.4}
+      />
+    </div>
+  );
+}
 
 type BlocklyOverlayProps = {
   slotRef: RefObject<HTMLDivElement | null>;
@@ -51,8 +91,7 @@ type BlocklyOverlayProps = {
  */
 function BlocklyOverlay({ slotRef, scale, disabled, onCommandsChange }: BlocklyOverlayProps) {
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const [isWorkspaceEmpty, setIsWorkspaceEmpty] = useState(true);
-  const [workspaceBounds, setWorkspaceBounds] = useState<WorkspaceBounds | null>(null);
+  const [placementGuide, setPlacementGuide] = useState<PlacementGuide | null>(null);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -81,25 +120,10 @@ function BlocklyOverlay({ slotRef, scale, disabled, onCommandsChange }: BlocklyO
     >
       <BlockWorkspace
         onCommandsChange={onCommandsChange}
-        onWorkspaceEmptyChange={setIsWorkspaceEmpty}
-        onWorkspaceBoundsChange={setWorkspaceBounds}
+        onPlacementGuideChange={setPlacementGuide}
         scale={scale}
       />
-      {isWorkspaceEmpty && workspaceBounds !== null && (
-        <div
-          className={styles.workspaceGuide}
-          style={{
-            left: workspaceBounds.left,
-            top: workspaceBounds.top,
-            width: workspaceBounds.width,
-            height: workspaceBounds.height,
-            borderWidth: `${3 * scale}px`,
-            fontSize: `${32 * scale}px`,
-          }}
-        >
-          <span className={styles.workspaceGuideLabel}>ここに ブロックを おいてね</span>
-        </div>
-      )}
+      {placementGuide !== null && <PlacementDemo guide={placementGuide} />}
     </div>
   );
 }
