@@ -23,6 +23,7 @@ import {
   type VisibleArtworkBounds,
 } from '../../lib/display/visibleArtworkBounds.ts';
 import { createBubblePool } from '../../lib/display/dashBubbles.ts';
+import { HIGHLIGHT_DURATION_MS, stepHighlight } from '../../lib/display/newArtworkHighlight.ts';
 import { useCreatureStream } from './useCreatureStream.ts';
 import styles from './DisplayPage.module.css';
 
@@ -41,6 +42,7 @@ type CreatureNode = {
   root: HTMLDivElement;
   image: HTMLImageElement;
   bubble: HTMLParagraphElement;
+  highlight: HTMLDivElement;
   visibleBounds: VisibleArtworkBounds | null;
 };
 
@@ -67,6 +69,7 @@ export function DisplayPage() {
   // setState の更新関数は StrictMode で2回呼ばれるため、副作用を伴う追加処理は ref の値をもとに行う
   const creaturesRef = useRef<Creature[]>([]);
   const motions = useRef(new Map<string, CreatureMotion>());
+  const highlights = useRef(new Map<string, number>());
   // 組んだブロック（コマンドの木）をそのまま持ち、再生するときにたどる
   const commands = useRef(new Map<string, Command[]>());
   const nodes = useRef(new Map<string, CreatureNode>());
@@ -104,6 +107,11 @@ export function DisplayPage() {
         // ほかの作品となるべく重ならないよう、空いているところに出す
         const occupied = swimmingPositions(motions.current, creature.id);
         motions.current.set(creature.id, createMotion(bounds, Math.random, { entering, occupied }));
+        if (entering) {
+          highlights.current.set(creature.id, HIGHLIGHT_DURATION_MS);
+        } else {
+          highlights.current.delete(creature.id);
+        }
         commands.current.set(creature.id, creature.commands);
       }
     }
@@ -172,9 +180,10 @@ export function DisplayPage() {
 
     const image = root.querySelector('img');
     const bubble = root.querySelector('p');
+    const highlight = root.querySelector<HTMLDivElement>('[data-highlight]');
 
-    if (image !== null && bubble !== null) {
-      nodes.current.set(id, { root, image, bubble, visibleBounds: null });
+    if (image !== null && bubble !== null && highlight !== null) {
+      nodes.current.set(id, { root, image, bubble, highlight, visibleBounds: null });
 
       if (image.complete && image.naturalWidth > 0) {
         updateVisibleBounds(id, image);
@@ -215,6 +224,7 @@ export function DisplayPage() {
         // 退場して画面の外へ出きったら、動きとコマンドを捨てて、描くのもやめる
         if (hasLeftScreen(nextMotion, bounds)) {
           motions.current.delete(id);
+          highlights.current.delete(id);
           commands.current.delete(id);
           lastBubbleAt.delete(id);
           leftIds.add(id);
@@ -222,6 +232,18 @@ export function DisplayPage() {
         }
 
         motions.current.set(id, nextMotion);
+        const remaining = highlights.current.get(id);
+        if (remaining !== undefined) {
+          const next = stepHighlight(remaining, delta, motion.enterRemaining);
+          node.highlight.style.opacity = visual.entering ? '0' : `${next / HIGHLIGHT_DURATION_MS}`;
+          if (next === 0) {
+            highlights.current.delete(id);
+          } else {
+            highlights.current.set(id, next);
+          }
+        } else {
+          node.highlight.style.opacity = '0';
+        }
         node.root.style.transform = `translate3d(${visual.x}px, ${visual.y}px, 0)`;
         if (
           bubblePool !== null &&
@@ -311,6 +333,7 @@ export function DisplayPage() {
           style={{ width: CREATURE_WIDTH, height: CREATURE_HEIGHT }}
         >
           <p className={styles.bubble} hidden />
+          <div className={styles.highlight} data-highlight aria-hidden="true" />
           <img
             className={styles.image}
             src={toImageUrl(creature.imageUrl)}
