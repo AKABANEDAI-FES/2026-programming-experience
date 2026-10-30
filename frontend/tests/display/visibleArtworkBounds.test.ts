@@ -30,11 +30,14 @@ test('表示画素がない場合や画像データの寸法が合わない場�
   assert.equal(findVisibleArtworkBounds(new Uint8ClampedArray(15), 2, 2), null);
 });
 
-test('左右の進行方向に応じて描画範囲の後端を表示座標へ変換する', () => {
-  const bounds = { minX: 20, minY: 10, maxX: 79, maxY: 39 };
-  const right = getTrailAnchor(bounds, 100, 50, 200, 100, 'right', 0, 1);
-  const left = getTrailAnchor(bounds, 100, 50, 200, 100, 'left', 0, 1);
+test('右へ進むときは、絵の左端（後端）を表示座標へ変換する', () => {
+  const bounds = { minX: 10, minY: 10, maxX: 59, maxY: 39 };
 
-  assert.deepEqual(right, { x: 40, y: 50 });
-  assert.deepEqual(left, { x: 160, y: 50 });
+  assert.deepEqual(getTrailAnchor(bounds, 100, 50, 200, 100, 'right', 0, 1), { x: 20, y: 50 });
+});
+
+test('左へ進むときは絵を左右反転するので、絵の左端（後端）も反転した位置になる', () => {
+  const bounds = { minX: 10, minY: 10, maxX: 59, maxY: 39 };
+
+  assert.deepEqual(getTrailAnchor(bounds, 100, 50, 200, 100, 'left', 0, 1), { x: 180, y: 50 });
 });

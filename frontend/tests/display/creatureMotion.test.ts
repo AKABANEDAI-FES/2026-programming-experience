@@ -194,11 +194,17 @@ test('最初は必ず右へ泳ぎ出し、描いた向きのまま登場する',
   }
 });
 
-test('左へ進むと向きが左になり、絵の角度は変わらない', () => {
+test('左へ進むと向きが左になり、絵を左右反転する（角度は変わらない）', () => {
   const visual = toVisual(motionAt({ vx: -60, facing: -1 }), []);
 
   assert.equal(visual.facing, 'left');
+  assert.equal(visual.flip, -1);
   assert.equal(visual.rotation, 0);
+});
+
+test('右へ進むときは描いたままの向きで、向きを変える途中は反転もなめらかに変わる', () => {
+  assert.equal(toVisual(motionAt({ vx: 60, facing: 1 }), []).flip, 1);
+  assert.equal(toVisual(motionAt({ vx: -60, facing: 0.2 }), []).flip, 0.2);
 });
 
 test('セリフコマンドではテキストを返す', () => {

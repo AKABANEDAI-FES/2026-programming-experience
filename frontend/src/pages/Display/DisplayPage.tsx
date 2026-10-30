@@ -287,7 +287,8 @@ export function DisplayPage() {
           lastBubbleAt.set(id, now);
         }
 
-        node.image.style.transform = `rotate(${visual.rotation}deg) scale(${visual.scale})`;
+        // 左右反転は絵だけにかける（吹き出しの文字は反転させない）
+        node.image.style.transform = `rotate(${visual.rotation}deg) scale(${visual.scale}) scaleX(${visual.flip})`;
         node.bubble.hidden = visual.sayText === null;
         node.bubble.textContent = visual.sayText;
       }

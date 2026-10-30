@@ -9,7 +9,7 @@ import {
   type PointerEvent,
 } from 'react';
 import type { DrawMode } from 'shared';
-import { Eraser, PaintRoller, PenLine } from 'lucide-react';
+import { ArrowRight, Eraser, PaintRoller, PenLine } from 'lucide-react';
 import {
   COLORING_TEMPLATES,
   DEFAULT_COLORING_TEMPLATE_ID,
@@ -910,6 +910,11 @@ export function DrawingScreen({
               {colorNotice}
             </div>
           )}
+          {/* 大画面では、左へ泳ぐときは絵を左右反転するので、右向きに描いてもらうと頭が進む向きにそろう */}
+          <p className={styles.directionBadge}>
+            すすむ むき
+            <ArrowRight className={styles.directionArrow} aria-hidden="true" />
+          </p>
         </div>
       </div>
 

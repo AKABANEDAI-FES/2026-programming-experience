@@ -49,7 +49,10 @@ export const findVisibleArtworkBounds = (
   return maxX < 0 ? null : { minX, minY, maxX, maxY };
 };
 
-/** 描画範囲の後端を、object-fit・拡大率・傾きを反映した表示座標へ変換する。 */
+/**
+ * 描画範囲の後端を、object-fit・拡大率・傾きを反映した表示座標へ変換する。
+ * 絵は右向きに描いてもらうので、後端はいつも絵の左端。左へ進むときは絵を左右反転して表示するため、その位置も反転する
+ */
 export const getTrailAnchor = (
   bounds: VisibleArtworkBounds,
   sourceWidth: number,
@@ -63,9 +66,9 @@ export const getTrailAnchor = (
   const fitScale = Math.min(containerWidth / sourceWidth, containerHeight / sourceHeight);
   const offsetX = (containerWidth - sourceWidth * fitScale) / 2;
   const offsetY = (containerHeight - sourceHeight * fitScale) / 2;
-  const sourceX = facing === 'right' ? bounds.minX : bounds.maxX + 1;
   const sourceY = (bounds.minY + bounds.maxY + 1) / 2;
-  const imageX = offsetX + sourceX * fitScale;
+  const unflippedX = offsetX + bounds.minX * fitScale;
+  const imageX = facing === 'right' ? unflippedX : containerWidth - unflippedX;
   const imageY = offsetY + sourceY * fitScale;
   const dx = (imageX - containerWidth / 2) * visualScale;
   const dy = (imageY - containerHeight / 2) * visualScale;
