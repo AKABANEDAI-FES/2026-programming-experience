@@ -20,7 +20,7 @@ export function HomeScreen({ onSelectMode }: HomeScreenProps) {
       </div>
 
       <div className={styles.guide}>
-        <p className={styles.bubble}>どっちに する？</p>
+        <p className={styles.bubble}>どっちに するにゃ？</p>
         <img className={styles.guideImage} src={inyaaGuide} alt="" />
       </div>
 
