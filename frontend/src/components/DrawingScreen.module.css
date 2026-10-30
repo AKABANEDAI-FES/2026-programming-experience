@@ -177,6 +177,32 @@
 }
 
 /* ぬりつぶしの案内や、白っぽい色の注意 */
+/* 紙の右下に出す「すすむ むき →」。絵の上に重ねるだけで、描いた絵には入らない */
+.directionBadge {
+  grid-area: 1 / 1;
+  z-index: 2;
+  align-self: end;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px;
+  padding: 8px 14px 8px 22px;
+  border-radius: 999px;
+  background: rgb(31 111 184 / 12%);
+  color: #1f6fb8;
+  font-size: 26px;
+  font-weight: 800;
+  pointer-events: none;
+  user-select: none;
+}
+
+.directionArrow {
+  width: 40px;
+  height: 40px;
+  stroke-width: 3;
+}
+
 .toast {
   grid-area: 1 / 1;
   z-index: 4;

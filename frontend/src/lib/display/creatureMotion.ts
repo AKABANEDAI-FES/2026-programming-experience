@@ -114,6 +114,11 @@ export type CreatureVisual = {
   dashIntensity: number;
   /** 泡を出す向き（進んでいる向き） */
   facing: 'left' | 'right';
+  /**
+   * 絵の左右の向き。絵は右向きに描いてもらうので、1 なら描いたまま、-1 なら左右反転。
+   * 向きを変えている途中は、その間をなめらかに動く
+   */
+  flip: number;
   /** 登場して沈んできている途中か（泡を出すのに使う） */
   entering: boolean;
   sayText: string | null;
@@ -496,7 +501,7 @@ export const toVisual = (motion: CreatureMotion, commands: readonly Command[]): 
   const shakeWave = motionType === 'shake' ? Math.sin(progress * SHAKE_TIMES * 2 * Math.PI) : 0;
 
   // 上下に進むときは、進んでいる側を少し上げ下げする。
-  // 描いた文字が鏡文字にならないよう絵は左右反転させず、左へ進むときは傾きの向きだけを逆にする
+  // 左へ進むときは絵を左右反転するので（flip）、傾きの向きも逆にして、頭の側を上げ下げする
   const heading = (Math.atan2(motion.vy, Math.abs(motion.vx)) * 180) / Math.PI;
   const tilt = clamp(heading, -MAX_TILT_DEG, MAX_TILT_DEG) * motion.facing;
 
@@ -514,6 +519,7 @@ export const toVisual = (motion: CreatureMotion, commands: readonly Command[]): 
     // 退場して泳いでいく間も、後ろに泡を出す
     dashIntensity: leaving ? LEAVE_BUBBLE_INTENSITY : getDashIntensity(action),
     facing: motion.facing < 0 ? 'left' : 'right',
+    flip: motion.facing,
     entering,
     sayText: action !== null && action.command.type === 'say' ? action.command.text : null,
   };
