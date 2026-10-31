@@ -55,13 +55,13 @@ test('直近の作品を上限の件数まで古い順に返す', async () => {
 
 test('一覧が複数ページに分かれていても最後まで読み込む', async () => {
   const bucket = createBucket(
-    Array.from({ length: 20 }, (_, index) => createObject(index)),
+    Array.from({ length: MAX_CREATURES }, (_, index) => createObject(index)),
     7,
   );
 
   const creatures = await listRecentCreatures(bucket);
 
-  assert.equal(creatures.length, 20);
+  assert.equal(creatures.length, MAX_CREATURES);
   assert.deepEqual(
     bucket.calls.map(({ cursor }) => cursor),
     [undefined, '7', '14'],

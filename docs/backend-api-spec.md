@@ -155,7 +155,7 @@ GET /api/images/creatures/1789452946224-12345678-1234-4234-8234-123456789abc.png
 
 - **エンドポイント**: `/api/creatures`
 - **HTTPメソッド**: `GET`
-- **取得件数**: 直近 `MAX_CREATURES`（30）件
+- **取得件数**: 直近 `MAX_CREATURES`（15）件
 
 成功時は `200 OK` で、作品の配列を古い順に返します。各要素は通知メッセージ（`creature_added`）の `creature` と同じ形式で、`id` も通知と同じ値です。大画面では `id` で通知との重複を判定できます。
 

@@ -118,7 +118,7 @@ export const expandCommands = (
 export const MAX_SAY_TEXT_LENGTH = 25;
 
 /** 大画面に同時表示する生き物の上限。超えたら古い順に削除（FIFO） */
-export const MAX_CREATURES = 30;
+export const MAX_CREATURES = 15;
 
 /** POST /api/release のリクエストボディ */
 export interface ReleaseRequest {
